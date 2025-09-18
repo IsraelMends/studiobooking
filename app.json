@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "StudioBooking",
+    "slug": "studiobooking-supabase",
+    "scheme": "studiobooking",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b0f13"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0b0f13"
+      }
+    },
+    "plugins": [
+      [
+        "expo-router"
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "replace-with-your-project-id"
+      },
+      "SUPABASE_URL": "https://<SEU-PROJETO>.supabase.co",
+      "SUPABASE_ANON_KEY": "<SUA-ANON-KEY>"
+    }
+  }
+}
