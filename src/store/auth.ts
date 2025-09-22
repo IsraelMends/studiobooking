@@ -1,14 +1,14 @@
 // src/store/auth.ts
-import { create } from 'zustand';
-import { supabase } from '~/lib/supabase';
+import { create } from "zustand";
+import { supabase } from "~/lib/supabase";
 
 type Profile = {
   id: string;
-  role: 'admin'|'user';
-  name: string;
-  email: string;
-  phone?: string;
-  organization?: string;
+  role: "admin" | "user";
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  organization: string | null;
   created_at: string;
 };
 
@@ -17,7 +17,13 @@ interface AuthState {
   loading: boolean;
   init: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  register: (p: {name:string; email:string; phone?:string; organization?:string; password:string}) => Promise<void>;
+  register: (p: {
+    name: string;
+    email: string;
+    phone?: string;
+    organization?: string;
+    password: string;
+  }) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -27,7 +33,9 @@ export const useAuth = create<AuthState>((set, get) => ({
   loading: true,
 
   init: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (session?.user) {
       await get().refreshProfile();
     } else {
@@ -44,40 +52,64 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   // ✅ Garante que SEMPRE exista uma linha em `profiles` para o usuário logado
   refreshProfile: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { set({ profile: null, loading: false }); return; }
-
-    // tenta ler
-    const got = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
-
-    if (got.error && got.error.code !== 'PGRST116') {
-      // erro real de select
-      console.log('profiles select error:', got.error);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
       set({ profile: null, loading: false });
       return;
     }
 
-    if (!got.data) {
-      // ⚠️ não existe profile: cria um mínimo e lê de novo
-      const displayName =
-        (user.user_metadata as any)?.name ||
-        (user.email?.split('@')[0] ?? 'Usuário');
+    // helper: transforma vazio/espacos em null
+    const nz = (v?: any) => {
+      if (v == null) return null;
+      const s = String(v).trim();
+      return s.length ? s : null;
+    };
 
-      const ins = await supabase.from('profiles').insert({
+    // metadata do auth
+    const m = (user.user_metadata ?? {}) as any;
+    const metaName = nz(m.name);
+    const metaPhone = nz(m.phone);
+    const metaOrg = nz(m.organization);
+    const metaRole = nz(m.role) ?? "user";
+
+    // lê profiles
+    const sel = await supabase
+      .from("profiles")
+      .select("id, role, name, email, phone, organization, created_at")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (sel.error && sel.error.code !== "PGRST116") {
+      console.log("profiles select error:", sel.error);
+      set({ profile: null, loading: false });
+      return;
+    }
+
+    // se não existe profile: cria já normalizando e usando fallback do metadata
+    if (!sel.data) {
+      const displayName = metaName ?? user.email?.split("@")[0] ?? "Usuário";
+      const ins = await supabase.from("profiles").insert({
         id: user.id,
-        role: 'user',
+        role: metaRole,
         name: displayName,
-        email: user.email
+        email: user.email,
+        phone: metaPhone,
+        organization: metaOrg,
       });
       if (ins.error) {
-        console.log('profiles insert error:', ins.error);
+        console.log("profiles insert error:", ins.error);
         set({ profile: null, loading: false });
         return;
       }
-
-      const reread = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      const reread = await supabase
+        .from("profiles")
+        .select("id, role, name, email, phone, organization, created_at")
+        .eq("id", user.id)
+        .single();
       if (reread.error) {
-        console.log('profiles reread error:', reread.error);
+        console.log("profiles reread error:", reread.error);
         set({ profile: null, loading: false });
         return;
       }
@@ -85,36 +117,83 @@ export const useAuth = create<AuthState>((set, get) => ({
       return;
     }
 
-    set({ profile: got.data as any, loading: false });
+    // existe profile: normalize e aplique fallback também quando for string vazia
+    const row = sel.data as any;
+    const rowName = nz(row.name);
+    const rowPhone = nz(row.phone);
+    const rowOrg = nz(row.organization);
+    const rowRole = nz(row.role) ?? "user";
+
+    const next = {
+      id: row.id,
+      role: rowRole ?? metaRole ?? "user",
+      name: rowName ?? metaName ?? user.email?.split("@")[0] ?? "Usuário",
+      email: nz(row.email) ?? user.email,
+      phone: rowPhone ?? metaPhone,
+      organization: rowOrg ?? metaOrg, // 👈 agora vazio cai pro metadata
+      created_at: row.created_at,
+    };
+
+    // backfill se faltou algum campo (null OU vazio)
+    const needsUpdate =
+      (rowName == null && next.name != null) ||
+      (rowPhone == null && next.phone != null) ||
+      (rowOrg == null && next.organization != null) ||
+      (rowRole == null && next.role != null);
+
+    if (needsUpdate) {
+      const upd = await supabase
+        .from("profiles")
+        .update({
+          name: next.name,
+          phone: next.phone,
+          organization: next.organization,
+          role: next.role,
+        })
+        .eq("id", user.id);
+      if (upd.error) console.log("profiles update(backfill) error:", upd.error);
+    }
+
+    set({ profile: next as any, loading: false });
   },
 
   // Registro: cria auth -> garante sessão -> insere profile -> carrega
   register: async ({ name, email, phone, organization, password }) => {
     const cleanEmail = String(email).trim().toLowerCase();
 
-    const { data, error } = await supabase.auth.signUp({ email: cleanEmail, password });
+    // 1) salvar metadados no usuário
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+      options: {
+        data: { name, phone, organization, role: "user" }, // ← grava no user_metadata
+      },
+    });
     if (error) throw error;
 
+    // 2) garantir sessão (se o projeto exige confirmação de email, isso pode não vir)
     let userId = data.user?.id;
     if (!data.session) {
-      const s2 = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+      const s2 = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
       if (s2.error) throw s2.error;
       userId = s2.data.user?.id;
     }
-    if (!userId) throw new Error('Não foi possível obter o user id após cadastro');
+    if (!userId)
+      throw new Error("Não foi possível obter o user id após cadastro");
 
-    // tenta criar profile (se falhar por duplicidade, seguimos)
-    const ins = await supabase.from('profiles').insert({
+    // 3) upsert na tabela profiles (id = auth.user.id)
+    const up = await supabase.from("profiles").upsert({
       id: userId,
-      role: 'user',
+      role: "user",
       name,
       email: cleanEmail,
       phone,
-      organization
+      organization,
     });
-    if (ins.error && ins.error.code !== '23505') { // 23505 = unique_violation
-      throw ins.error;
-    }
+    if (up.error) throw up.error;
 
     await get().refreshProfile();
   },
@@ -123,9 +202,12 @@ export const useAuth = create<AuthState>((set, get) => ({
   login: async (email, password) => {
     const ok = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
-      password
+      password,
     });
-    if (ok.error) { console.log('Supabase login error:', ok.error); throw ok.error; }
+    if (ok.error) {
+      console.log("Supabase login error:", ok.error);
+      throw ok.error;
+    }
     await get().refreshProfile();
   },
 

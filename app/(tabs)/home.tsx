@@ -1,11 +1,15 @@
 // app/(tabs)/home.tsx
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+
 import { useBookings } from '../../src/store/booking';
 import { useAuth } from '../../src/store/auth';
+
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+
 import { format } from 'date-fns';
 
 export default function Home(){
@@ -16,7 +20,7 @@ export default function Home(){
   useEffect(() => { loadMyNext(); }, []);
 
   return (
-    <View style={{ flex:1, backgroundColor:'#0b0f13', padding:16, gap:16 }}>
+    <SafeAreaView style={{ flex:1, backgroundColor:'#0b0f13', padding:16, gap:16 }}>
       <Text style={{ color:'white', fontSize:22, fontWeight:'800' }}>Olá, {profile?.name?.split(' ')[0] ?? 'bem-vindo'} 👋</Text>
 
       {/* Card Próxima Agenda */}
@@ -52,7 +56,23 @@ export default function Home(){
           <Text style={{ color:'#9aa0a6', marginTop:4 }}>Veja reservas de cada usuário</Text>
         </Pressable>
       )}
-    </View>
+
+      {profile?.role === 'admin' && (
+        <Pressable onPress={()=> router.push('/admin/reports')}
+          style={{ backgroundColor:'#1a2a33', borderRadius:16, padding:16 }}>
+          <Text style={{ color:'white', fontWeight:'800', fontSize:16 }}>Gerenciar relatórios</Text>
+          <Text style={{ color:'#9aa0a6', marginTop:4 }}>Veja relatórios de reservas</Text>
+        </Pressable>
+      )}
+
+      {profile?.role === 'admin' && (
+        <Pressable onPress={()=> router.push('/(admin)/day')}
+          style={{ backgroundColor:'#1a2a33', borderRadius:16, padding:16 }}>
+          <Text style={{ color:'white', fontWeight:'800', fontSize:16 }}>Gerenciar agenda diária</Text>
+          <Text style={{ color:'#9aa0a6', marginTop:4 }}>Veja reservas por dia</Text>
+        </Pressable>
+      )}
+    </SafeAreaView>
   );
   useFocusEffect(useCallback(() => {
     loadMyNext();

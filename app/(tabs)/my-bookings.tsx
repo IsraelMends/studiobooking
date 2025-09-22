@@ -2,14 +2,17 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { format } from 'date-fns';
+
 import { useBookings } from '~/store/booking';
 
 type ItemProps = {
   id: string;
   date: string;        // 'YYYY-MM-DD'
   start_time: string;  // 'HH:mm' ou 'HH:mm:ss'
-  status: 'active' | 'canceled';
+  status: 'active' | 'canceled' | 'completed';
 };
 
 function toDate(date: string, time: string) {
@@ -60,6 +63,7 @@ function BookingCard({ item }: { item: ItemProps }) {
   const isActive = item.status === 'active';
 
   return (
+    <SafeAreaView style={{ marginBottom:12 }}>
     <View style={{ backgroundColor:'#11161b', padding:16, borderRadius:14, marginBottom:12 }}>
       <Text style={{ color:'#fff', fontWeight:'800', fontSize:16 }}>{whenLabel}</Text>
       <Text style={{ color:'#9aa0a6', marginTop:6 }}>Duração: 60 min (+10 min buffer)</Text>
@@ -71,7 +75,7 @@ function BookingCard({ item }: { item: ItemProps }) {
             paddingHorizontal:10, paddingVertical:4, borderRadius:999, fontWeight:'700'
           }}
         >
-          {isActive ? 'Ativa' : 'Cancelada'}
+          {isActive ? 'Ativa' : item.status === 'canceled' ? 'Cancelada' : 'Concluída'}
         </Text>
 
         {isActive && (
@@ -95,6 +99,7 @@ function BookingCard({ item }: { item: ItemProps }) {
         )}
       </View>
     </View>
+    </SafeAreaView>
   );
 }
 
@@ -118,6 +123,7 @@ export default function MyBookingsScreen() {
   }, [loadMyUpcoming]);
 
   return (
+    <SafeAreaView style={{ flex:1, backgroundColor:'#0b0f13' }}>
     <View style={{ flex:1, backgroundColor:'#0b0f13', padding:16 }}>
       <Text style={{ color:'#fff', fontSize:22, fontWeight:'800', marginBottom:12 }}>Minhas reservas</Text>
 
@@ -144,5 +150,6 @@ export default function MyBookingsScreen() {
         contentContainerStyle={{ paddingBottom: 24 }}
       />
     </View>
+    </SafeAreaView>
   );
 }
