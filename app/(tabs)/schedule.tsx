@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Platform,
   Vibration, // Opcional para feedback háptico
+  Modal, // Adicionado para o modal de seleção de aparelhos
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -76,6 +77,20 @@ export default function Schedule() {
   const [isLoading, setIsLoading] = useState(true); // Loading global
   const [isCreating, setIsCreating] = useState(false); // Loading para criação
 
+  // Novos estados para o modal de aparelhos
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
+
+  // Lista de aparelhos disponíveis (pode ser movida para settings ou API no futuro)
+  const devices = [
+    'Cameras',
+    'Microfones',
+    'Tripés',
+    'Iluminação',
+    'Refletores',
+  ];
+
   useEffect(() => {
     load().finally(() => setIsLoading(false));
   }, []);
@@ -129,24 +144,30 @@ export default function Schedule() {
     loadData();
   }, [date, settings, blocks]);
 
-  const onPick = useCallback(async (t: string) => {
-    if (!profile) {
-      Alert.alert('Erro', 'Você precisa estar logado para agendar.');
+  const toggleDevice = useCallback((device: string) => {
+    setSelectedDevices((prev) =>
+      prev.includes(device) ? prev.filter((d) => d !== device) : [...prev, device]
+    );
+  }, []);
+
+  const confirmBooking = useCallback(async () => {
+    if (selectedDevices.length === 0) {
+      Alert.alert('Seleção Obrigatória', 'Você deve selecionar pelo menos um aparelho para continuar.');
       return;
     }
 
-    if (isToday(date) && t < nowHHMM()) {
-      Alert.alert('Horário Inválido', 'Não é possível reservar para um horário já passado. Escolha outro.');
-      return;
-    }
-    if (isPastDate(date)) {
-      Alert.alert('Data Inválida', 'Não é possível reservar em datas anteriores a hoje.');
-      return;
-    }
-
+    setShowDeviceModal(false);
     setIsCreating(true);
     try {
-      await createBooking(profile.id, date, t);
+      // Assumindo que createBooking agora aceita selectedDevices como parâmetro adicional
+      // (ex: createBooking(userId, date, time, devices: string[]))
+      // No backend/services, ajuste para incluir devices no payload (ex: como JSON ou array)
+      if (!profile) {
+        Alert.alert('Erro', 'Você precisa estar logado para agendar.');
+        setIsCreating(false);
+        return;
+      }
+      await createBooking(profile.id, date, selectedTime, selectedDevices);
       Vibration.vibrate(100); // Feedback háptico opcional (iOS/Android)
 
       // Recarrega dados do dia
@@ -177,13 +198,36 @@ export default function Schedule() {
       }
 
       setAvailable(av);
-      Alert.alert('Sucesso!', 'Reserva criada com sucesso. Você receberá uma confirmação.');
+      Alert.alert('Sucesso!', `Reserva criada com sucesso para ${selectedTime}. Aparelhos: ${selectedDevices.join(', ')}. Você receberá uma confirmação.`);
     } catch (e: any) {
       Alert.alert('Erro ao Agendar', e.message || 'Tente novamente mais tarde.');
     } finally {
       setIsCreating(false);
+      setSelectedDevices([]); // Reset da seleção
+      setSelectedTime(''); // Reset do horário
     }
-  }, [profile, date, settings, blocks]);
+  }, [profile, date, selectedTime, selectedDevices, settings, blocks]);
+
+  const onPick = useCallback(async (t: string) => {
+    if (!profile) {
+      Alert.alert('Erro', 'Você precisa estar logado para agendar.');
+      return;
+    }
+
+    if (isToday(date) && t < nowHHMM()) {
+      Alert.alert('Horário Inválido', 'Não é possível reservar para um horário já passado. Escolha outro.');
+      return;
+    }
+    if (isPastDate(date)) {
+      Alert.alert('Data Inválida', 'Não é possível reservar em datas anteriores a hoje.');
+      return;
+    }
+
+    // Em vez de criar diretamente, abre o modal para seleção de aparelhos
+    setSelectedTime(t);
+    setSelectedDevices([]); // Reset seleção ao iniciar
+    setShowDeviceModal(true);
+  }, [profile, date]);
 
   const onDayPress = useCallback((day: { dateString: string }) => {
     if (isPastDate(day.dateString)) return;
@@ -268,10 +312,10 @@ export default function Schedule() {
               <Pressable
                 key={t}
                 onPress={() => onPick(t)}
-                disabled={isCreating}
+                disabled={isCreating || showDeviceModal}
                 style={({ pressed }) => [
                   styles.slotButton,
-                  { opacity: pressed || isCreating ? 0.7 : 1 },
+                  { opacity: pressed || isCreating || showDeviceModal ? 0.7 : 1 },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`Agendar para ${t} - Duração 60 minutos`}
@@ -290,8 +334,66 @@ export default function Schedule() {
             />
           )}
         </View>
-
       </ScrollView>
+
+      {/* Modal para seleção de aparelhos */}
+      <Modal
+        visible={showDeviceModal}
+        animationType="slide"
+        onRequestClose={() => setShowDeviceModal(false)}
+        statusBarTranslucent={false}
+      >
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>Selecione os Aparelhos a Utilizar</Text>
+          <Text style={styles.modalSubtitle}>
+            Horário: {selectedTime} | Data: {date} | Duração: 60min
+          </Text>
+
+          <View style={styles.devicesList}>
+            {devices.map((device) => (
+              <Pressable
+                key={device}
+                onPress={() => toggleDevice(device)}
+                style={styles.deviceItem}
+              >
+                <MaterialIcons
+                  name={selectedDevices.includes(device) ? 'check-box' : 'check-box-outline-blank'}
+                  size={24}
+                  color="#ffffff"
+                />
+                <Text style={styles.deviceText}>{device}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            onPress={confirmBooking}
+            disabled={selectedDevices.length === 0}
+            style={({ pressed }) => [
+              styles.confirmButton,
+              { opacity: pressed || selectedDevices.length === 0 ? 0.7 : 1 },
+              selectedDevices.length === 0 && styles.disabledButton,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Confirmar reserva com ${selectedDevices.length} aparelho(s) selecionado(s)`}
+          >
+            <Text style={styles.confirmButtonText}>
+              Confirmar Reserva ({selectedDevices.length} selecionado{selectedDevices.length !== 1 ? 's' : ''})
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              setShowDeviceModal(false);
+              setSelectedDevices([]);
+              setSelectedTime('');
+            }}
+            style={({ pressed }) => [styles.cancelButton, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={styles.cancelButtonText}>Cancelar</Text>
+          </Pressable>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -433,5 +535,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  // Novos estilos para o modal
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0b0f13',
+    padding: 20,
+  },
+  modalTitle: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    color: '#9aa0a6',
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  devicesList: {
+    width: '100%',
+    maxHeight: 300,
+    marginBottom: 20,
+  },
+  deviceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#11161b',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  deviceText: {
+    color: '#ffffff',
+    fontSize: 16,
+    marginLeft: 12,
+  },
+  confirmButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  confirmButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ef4444',
+  },
+  cancelButtonText: {
+    color: '#ef4444',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    backgroundColor: '#555555',
   },
 });
