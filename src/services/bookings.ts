@@ -10,7 +10,7 @@ export async function fetchDayBookings(dateISO: string){
   return data ?? [];
 }
 
-export async function createBooking(userId: string, dateISO: string, startHHmm: string){
+export async function createBooking(userId: string, dateISO: string, startHHmm: string, selectedDevices: string[]){
   const { data, error } = await supabase.rpc('create_booking', {
     p_user_id: userId,
     p_date: dateISO,
