@@ -11,7 +11,7 @@ export type Booking = {
   start_time: string; // 'HH:mm:ss' (ou 'HH:mm')
   end_time: string;
   buffer_until: string;
-  status: "active" | "canceled";
+  status: "active" | "canceled" | "completed";
   created_at: string;
   canceled_reason?: string | null;
   canceled_at?: string | null;
@@ -63,10 +63,34 @@ export const useBookings = create<BookingState>((set, get) => ({
   // --------- State inicial ---------
   slots: [],
   myNext: null,
-  myUpcoming: [],
+  myUpcoming: [] as Booking[],
   adminUsers: [],
   selectedUserBookings: [],
   dayOverview: [],
+
+  loadMyUpcoming: async () => {
+    // 1) pega usuário logado
+    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    if (userErr) throw userErr;
+    const user = userRes.user;
+    if (!user) throw new Error("Not authenticated");
+
+    // 2) data de hoje como 'YYYY-MM-DD' (não use toISOString)
+    const todayStr = formatISO(new Date(), { representation: "date" });
+
+    // 3) busca SOMENTE desse usuário e SOMENTE futuras/hoje
+    //    (se quiser filtrar por horário do mesmo dia, crie uma view com start_at timestamp)
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("user_id", user.id)
+      .gte("date", todayStr)
+      .order("date", { ascending: true })
+      .order("start_time", { ascending: true });
+
+    if (error) throw error;
+    set({ myUpcoming: data ?? [] });
+  },
 
   // --------- User: gerar slots de um dia ---------
   loadSlots: async (dateISO) => {
@@ -95,18 +119,16 @@ export const useBookings = create<BookingState>((set, get) => ({
       p_reason: reason ?? null,
     });
     if (error) {
-      // mensagens claras para o usuário
-      if (String(error.message).includes("POLICY")) {
-        throw new Error(
-          "Você não pode cancelar porque passou do limite da política de cancelamento."
-        );
+      const msg = String(error.message || error);
+      if (msg.includes("ALREADY_COMPLETED")) {
+        throw new Error("Esta reserva já foi concluída.");
       }
-      if (String(error.message).includes("FORBIDDEN")) {
+      if (msg.includes("FORBIDDEN")) {
         throw new Error("Você só pode cancelar as suas próprias reservas.");
       }
       throw error;
     }
-    await Promise.all([get().loadMyUpcoming(), get().loadMyNext()]);
+    await get().loadMyUpcoming();
   },
 
   // --------- User: próxima reserva futura ---------
@@ -139,30 +161,6 @@ export const useBookings = create<BookingState>((set, get) => ({
       }) || null;
 
     set({ myNext: next });
-  },
-
-  // --------- User: próximas reservas ---------
-  loadMyUpcoming: async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      set({ myUpcoming: [] });
-      return;
-    }
-
-    const todayStr = formatISO(new Date(), { representation: "date" });
-    const { data, error } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .gte("date", todayStr)
-      .order("date", { ascending: true })
-      .order("start_time", { ascending: true });
-
-    if (error) throw error;
-    set({ myUpcoming: data || [] });
   },
 
   // ====================== ADMIN ======================
@@ -263,22 +261,19 @@ export const useBookings = create<BookingState>((set, get) => ({
   },
 
   // --------- Admin: cancelar (mesmo RPC; admin sempre pode) ---------
-  adminCancel: async (bookingId: string, reason?: string) => {
+  adminCancel: async (bookingId, reason) => {
+    // É o MESMO RPC; o backend libera para admin automaticamente
     const { error } = await supabase.rpc("cancel_booking", {
       p_booking_id: bookingId,
       p_reason: reason ?? "Cancelado pelo administrador",
     });
-    if (error) throw error;
-    // Atualize visões que você usa na tela do admin
-    // (ajuste conforme a tela ativa, para não fazer chamadas desnecessárias)
-    // Exemplo: recarregar visão do dia atual e lista do usuário selecionado:
-    // await Promise.all([
-    //   get().loadDayOverview(formatISO(new Date(), { representation:'date' })),
-    //   get().loadBookingsByUser(<userIdSelecionado>)
-    // ]);
-    await get().loadDayOverview(
-      formatISO(new Date(), { representation: "date" })
-    );
-    await get().loadBookingsByUser(bookingId);
+    if (error) {
+      const msg = String(error.message || error);
+      if (msg.includes("ALREADY_COMPLETED")) {
+        throw new Error("Esta reserva já foi concluída.");
+      }
+      throw error;
+    }
+    await get().loadMyUpcoming();
   },
 }));
