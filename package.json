@@ -12,7 +12,9 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^3.9.0",
+    "@react-native-community/datetimepicker": "^8.4.5",
     "@react-navigation/bottom-tabs": "^7.4.7",
+    "@react-navigation/native": "^7.1.17",
     "@supabase/supabase-js": "^2.45.4",
     "date-fns": "^3.6.0",
     "expo": "^54.0.8",
