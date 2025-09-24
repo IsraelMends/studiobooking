@@ -43,7 +43,7 @@ export default function Login(){
   return (
     <View style={{ flex:1, backgroundColor: '#0b0f13', padding: 20, justifyContent: 'center', gap: 12 }}>
       <Text style={{ color: 'white', fontSize: 24, fontWeight: '700', marginBottom: 12 }}>
-        {isRegister ? 'Criar conta' : 'Entrar'}
+        {isRegister ? '' : 'Entrar'}
       </Text>
 
       {isRegister && (
@@ -72,10 +72,6 @@ export default function Login(){
           <Text style={{ color:'white', textAlign:'center', fontWeight:'700' }}>
             {isRegister ? 'Registrar' : 'Entrar'}
           </Text>}
-      </Pressable>
-
-      <Pressable onPress={()=> setIsRegister(!isRegister)}>
-        <Text style={{ color:'#61dafb' }}>{isRegister ? 'Já tenho conta' : 'Criar conta'}</Text>
       </Pressable>
     </View>
   );

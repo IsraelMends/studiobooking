@@ -1,42 +1,74 @@
 create extension if not exists pgcrypto;
 
-create table if not exists profiles (
-  id uuid primary key references auth.users on delete cascade,
-  role text check (role in ('admin','user')) not null default 'user',
-  name text not null,
-  email text not null unique,
-  phone text,
-  organization text,
-  created_at timestamptz not null default now()
-);
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
 
-create table if not exists settings (
-  id text primary key default 'global',
-  open_time time not null default '08:00',
-  close_time time not null default '22:00',
-  cancel_policy_hours int not null default 6
+CREATE TABLE public.blocks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  date date NOT NULL,
+  start time without time zone,
+  finish time without time zone,
+  reason text,
+  CONSTRAINT blocks_pkey PRIMARY KEY (id)
 );
-
-create table if not exists blocks (
-  id uuid primary key default gen_random_uuid(),
-  date date not null,
-  start time,
-  finish time,
-  reason text
+CREATE TABLE public.booking_policies (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL,
+  policy_type character varying NOT NULL,
+  value integer DEFAULT 0,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT booking_policies_pkey PRIMARY KEY (id),
+  CONSTRAINT booking_policies_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
 );
-
-create table if not exists bookings (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references profiles(id) on delete cascade,
-  date date not null,
-  start_time time not null,
-  end_time time not null,
-  buffer_until time not null,
-  status text not null check (status in ('active','canceled')) default 'active',
-  created_at timestamptz not null default now(),
+CREATE TABLE public.bookings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  date date NOT NULL,
+  start_time time without time zone NOT NULL,
+  end_time time without time zone NOT NULL,
+  buffer_until time without time zone NOT NULL,
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'canceled'::text, 'finished'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   room_id text,
   kind text,
-  cancel_reason text
+  cancel_reason text,
+  canceled_reason text,
+  canceled_at timestamp with time zone,
+  organization_id uuid,
+  CONSTRAINT bookings_pkey PRIMARY KEY (id),
+  CONSTRAINT bookings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT bookings_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
+  CONSTRAINT fk_bookings_org FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+);
+CREATE TABLE public.organizations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  email character varying UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  owner_id uuid,
+  CONSTRAINT organizations_pkey PRIMARY KEY (id),
+  CONSTRAINT organizations_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  role text NOT NULL DEFAULT 'user'::text CHECK (role = ANY (ARRAY['admin'::text, 'user'::text])),
+  name text NOT NULL,
+  email text NOT NULL UNIQUE,
+  phone text,
+  organization character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.settings (
+  id text NOT NULL DEFAULT 'global'::text,
+  open_time time without time zone NOT NULL DEFAULT '08:00:00'::time without time zone,
+  close_time time without time zone NOT NULL DEFAULT '22:00:00'::time without time zone,
+  cancel_policy_hours integer NOT NULL DEFAULT 6,
+  org_daily_quota_minutes integer NOT NULL DEFAULT 180,
+  CONSTRAINT settings_pkey PRIMARY KEY (id)
 );
 
 create index if not exists bookings_day_idx on bookings(date);

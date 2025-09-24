@@ -1,5 +1,5 @@
 // app/(tabs)/home.tsx
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -7,18 +7,18 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons'; // Para ícones (instale se necessário: npx expo install @expo/vector-icons)
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialIcons } from "@expo/vector-icons"; // Para ícones (instale se necessário: npx expo install @expo/vector-icons)
 
-import { useBookings } from '../../src/store/booking';
-import { useAuth } from '../../src/store/auth';
+import { useBookings } from "../../src/store/booking";
+import { useAuth } from "../../src/store/auth";
 
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router'; // Corrigido: import de expo-router
+import { useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router"; // Corrigido: import de expo-router
 
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale'; // Para formatação em PT-BR (adicione se não tiver)
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale"; // Para formatação em PT-BR (adicione se não tiver)
 
 export default function Home() {
   const { myNext, loadMyNext } = useBookings();
@@ -29,9 +29,9 @@ export default function Home() {
   // Saudação dinâmica baseada na hora
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Bom dia';
-    if (hour < 18) return 'Boa tarde';
-    return 'Boa noite';
+    if (hour < 12) return "Bom dia";
+    if (hour < 18) return "Boa tarde";
+    return "Boa noite";
   };
 
   useEffect(() => {
@@ -48,7 +48,11 @@ export default function Home() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color="#ffffff" style={styles.loading} />
+        <ActivityIndicator
+          size="large"
+          color="#ffffff"
+          style={styles.loading}
+        />
         <Text style={styles.loadingText}>Carregando sua agenda...</Text>
       </SafeAreaView>
     );
@@ -58,7 +62,7 @@ export default function Home() {
     <SafeAreaView style={styles.container}>
       {/* Saudação */}
       <Text style={styles.greeting}>
-        {getGreeting()}, {profile?.name?.split(' ')[0] ?? 'bem-vindo'} 👋
+        {getGreeting()}, {profile?.name?.split(" ")[0] ?? "bem-vindo"} 👋
       </Text>
 
       {/* Card Próxima Agenda */}
@@ -76,9 +80,11 @@ export default function Home() {
                 { locale: ptBR }
               )}
             </Text>
-            <Text style={styles.durationText}>Duração: 60 min (+10 min buffer)</Text>
+            <Text style={styles.durationText}>
+              Duração: 60 min (+10 min buffer)
+            </Text>
             <Pressable
-              onPress={() => router.push('/(tabs)/my-bookings')}
+              onPress={() => router.push("/(tabs)/my-bookings")}
               style={({ pressed }) => [
                 styles.actionButton,
                 { opacity: pressed ? 0.7 : 1 },
@@ -97,7 +103,7 @@ export default function Home() {
               Você ainda não tem reservas futuras. Que tal agendar uma?
             </Text>
             <Pressable
-              onPress={() => router.push('/(tabs)/schedule')}
+              onPress={() => router.push("/(tabs)/schedule")}
               style={({ pressed }) => [
                 styles.actionButton,
                 { opacity: pressed ? 0.7 : 1 },
@@ -114,12 +120,12 @@ export default function Home() {
       </View>
 
       {/* Seção Admin (agrupada para melhor UX) */}
-      {profile?.role === 'admin' && (
+      {profile?.role === "admin" && (
         <View style={styles.adminSection}>
           <Text style={styles.sectionTitle}>Painel Admin</Text>
           <View style={styles.adminCards}>
             <Pressable
-              onPress={() => router.push('/(admin)/users')}
+              onPress={() => router.push("/(admin)/users")}
               style={({ pressed }) => [
                 styles.adminCard,
                 { opacity: pressed ? 0.7 : 1 },
@@ -130,13 +136,17 @@ export default function Home() {
             >
               <MaterialIcons name="people" size={24} color="#ffffff" />
               <View style={styles.cardContent}>
-                <Text style={styles.adminCardTitle}>Gerenciar usuários & agendas</Text>
-                <Text style={styles.adminCardSubtitle}>Veja reservas de cada usuário</Text>
+                <Text style={styles.adminCardTitle}>
+                  Gerenciar usuários & agendas
+                </Text>
+                <Text style={styles.adminCardSubtitle}>
+                  Veja reservas de cada usuário
+                </Text>
               </View>
             </Pressable>
 
             <Pressable
-              onPress={() => router.push('/admin/reports')}
+              onPress={() => router.push("/admin/reports")}
               style={({ pressed }) => [
                 styles.adminCard,
                 { opacity: pressed ? 0.7 : 1 },
@@ -148,12 +158,14 @@ export default function Home() {
               <MaterialIcons name="assessment" size={24} color="#ffffff" />
               <View style={styles.cardContent}>
                 <Text style={styles.adminCardTitle}>Gerenciar relatórios</Text>
-                <Text style={styles.adminCardSubtitle}>Veja relatórios de reservas</Text>
+                <Text style={styles.adminCardSubtitle}>
+                  Veja relatórios de reservas
+                </Text>
               </View>
             </Pressable>
 
             <Pressable
-              onPress={() => router.push('/(admin)/day')}
+              onPress={() => router.push("/(admin)/day")}
               style={({ pressed }) => [
                 styles.adminCard,
                 { opacity: pressed ? 0.7 : 1 },
@@ -164,8 +176,31 @@ export default function Home() {
             >
               <MaterialIcons name="date-range" size={24} color="#ffffff" />
               <View style={styles.cardContent}>
-                <Text style={styles.adminCardTitle}>Gerenciar agenda diária</Text>
-                <Text style={styles.adminCardSubtitle}>Veja reservas por dia</Text>
+                <Text style={styles.adminCardTitle}>
+                  Gerenciar agenda diária
+                </Text>
+                <Text style={styles.adminCardSubtitle}>
+                  Veja reservas por dia
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.push("/(admin)/register")}
+              style={({ pressed }) => [
+                styles.adminCard,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Criar novo usuário"
+              accessibilityHint="Abre a tela de criação de novo usuário"
+            >
+              <MaterialIcons name="person" size={24} color="#ffffff" />
+              <View style={styles.cardContent}>
+                <Text style={styles.adminCardTitle}>Criar novo usuário</Text>
+                <Text style={styles.adminCardSubtitle}>
+                  Crie um novo usuário para o sistema
+                </Text>
               </View>
             </Pressable>
           </View>
@@ -178,23 +213,23 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b0f13',
+    backgroundColor: "#0b0f13",
     padding: 16,
     gap: 20,
   },
   greeting: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 8,
   },
   card: {
-    backgroundColor: '#11161b',
+    backgroundColor: "#11161b",
     borderRadius: 16,
     padding: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -205,69 +240,69 @@ const styles = StyleSheet.create({
     }),
   },
   cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
     gap: 8,
   },
   cardTitle: {
-    color: '#9aa0a6',
+    color: "#9aa0a6",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   nextBookingDate: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 4,
   },
   durationText: {
-    color: '#9aa0a6',
+    color: "#9aa0a6",
     fontSize: 14,
     marginBottom: 12,
   },
   noBookingText: {
-    color: '#9aa0a6',
+    color: "#9aa0a6",
     fontSize: 16,
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   actionButton: {
-    flexDirection: 'row',
-    backgroundColor: '#20232a',
+    flexDirection: "row",
+    backgroundColor: "#20232a",
     padding: 12,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
   buttonText: {
-    color: '#ffffff',
-    fontWeight: '700',
+    color: "#ffffff",
+    fontWeight: "700",
     fontSize: 16,
   },
   adminSection: {
     gap: 12,
   },
   sectionTitle: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 8,
   },
   adminCards: {
     gap: 12,
   },
   adminCard: {
-    flexDirection: 'row',
-    backgroundColor: '#1a2a33',
+    flexDirection: "row",
+    backgroundColor: "#1a2a33",
     borderRadius: 16,
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 12,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
@@ -281,12 +316,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   adminCardTitle: {
-    color: '#ffffff',
-    fontWeight: '800',
+    color: "#ffffff",
+    fontWeight: "800",
     fontSize: 16,
   },
   adminCardSubtitle: {
-    color: '#9aa0a6',
+    color: "#9aa0a6",
     fontSize: 14,
     marginTop: 2,
   },
@@ -294,9 +329,9 @@ const styles = StyleSheet.create({
     marginTop: 100,
   },
   loadingText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 8,
   },
 });
