@@ -19,7 +19,7 @@ export default function Profile() {
   const router = useRouter();
 
   const isAdmin = profile?.role === 'admin';
-  const orgLabel = profile?.organization?.trim() || 'Não informado';
+  const orgLabel = profile?.organization_id?.trim() || 'Não informado';
 
   const handleLogout = useCallback(async () => {
     // Opcional: Confirmação antes de logout
