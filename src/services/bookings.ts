@@ -78,10 +78,9 @@ export async function createBooking(
        status: "active",
        devices, // Mantenha por enquanto
      };
-     console.log('Objeto sendo inserido:', JSON.stringify(insertData, null, 2)); // Isso mostra tudo em detalhes
+     
      const { error } = await supabase.from("bookings").insert(insertData);
      if (error) {
-       console.error('Erro completo:', error);
        throw error;
      }
 }
