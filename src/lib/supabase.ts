@@ -1,10 +1,16 @@
-import 'react-native-url-polyfill/auto';
+// ~/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 
-// Troque aqui pelas suas credenciais
-const SUPABASE_URL = "https://ybanoxwifcqwjzctpods.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InliYW5veHdpZmNxd2p6Y3Rwb2RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyMjY2MTcsImV4cCI6MjA3MzgwMjYxN30.yqy4FJAbmfYd5QnwxoJD8FOSloV6tH4ZCvE5fY5i26s";
+export const SUPABASE_URL =
+  Constants.expoConfig?.extra?.SUPABASE_URL ?? Constants.manifest?.extra?.SUPABASE_URL;
+
+export const SUPABASE_ANON_KEY =
+  Constants.expoConfig?.extra?.SUPABASE_ANON_KEY ?? Constants.manifest?.extra?.SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL) throw new Error('SUPABASE_URL não configurado');
+if (!SUPABASE_ANON_KEY) throw new Error('SUPABASE_ANON_KEY não configurado');
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+  auth: { persistSession: true },
 });
