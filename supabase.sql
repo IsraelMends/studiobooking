@@ -4,23 +4,27 @@ create extension if not exists pgcrypto;
 -- Table order and constraints may not be valid for execution.
 
 CREATE TABLE public.blocks (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  date date NOT NULL,
-  start time without time zone,
-  finish time without time zone,
-  reason text,
-  CONSTRAINT blocks_pkey PRIMARY KEY (id)
+    id uuid NOT NULL DEFAULT gen_random_uuid (),
+    date date NOT NULL,
+    start time without time zone,
+    finish time without time zone,
+    reason text,
+    CONSTRAINT blocks_pkey PRIMARY KEY (id)
 );
+
 CREATE TABLE public.booking_policies (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  organization_id uuid NOT NULL,
-  policy_type character varying NOT NULL,
-  value integer DEFAULT 0,
-  is_active boolean DEFAULT true,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT booking_policies_pkey PRIMARY KEY (id),
-  CONSTRAINT booking_policies_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+    id uuid NOT NULL DEFAULT gen_random_uuid (),
+    organization_id uuid NOT NULL,
+    policy_type character varying NOT NULL,
+    value integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    created_at timestamp
+    with
+        time zone DEFAULT now(),
+        CONSTRAINT booking_policies_pkey PRIMARY KEY (id),
+        CONSTRAINT booking_policies_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations (id)
 );
+
 CREATE TABLE public.bookings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -41,27 +45,33 @@ CREATE TABLE public.bookings (
   CONSTRAINT bookings_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
   CONSTRAINT fk_bookings_org FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
 );
+
 CREATE TABLE public.organizations (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name character varying NOT NULL,
-  email character varying UNIQUE,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  owner_id uuid,
-  CONSTRAINT organizations_pkey PRIMARY KEY (id),
-  CONSTRAINT organizations_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id)
+    id uuid NOT NULL DEFAULT gen_random_uuid (),
+    name character varying NOT NULL,
+    email character varying UNIQUE,
+    created_at timestamp
+    with
+        time zone DEFAULT now(),
+        updated_at timestamp
+    with
+        time zone DEFAULT now(),
+        owner_id uuid,
+        CONSTRAINT organizations_pkey PRIMARY KEY (id),
+        CONSTRAINT organizations_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users (id)
 );
+
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
   role text NOT NULL DEFAULT 'user'::text CHECK (role = ANY (ARRAY['admin'::text, 'user'::text])),
   name text NOT NULL,
   email text NOT NULL UNIQUE,
   phone text,
-  organization character varying,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
+
 CREATE TABLE public.settings (
   id text NOT NULL DEFAULT 'global'::text,
   open_time time without time zone NOT NULL DEFAULT '08:00:00'::time without time zone,
@@ -71,32 +81,115 @@ CREATE TABLE public.settings (
   CONSTRAINT settings_pkey PRIMARY KEY (id)
 );
 
-create index if not exists bookings_day_idx on bookings(date);
-create index if not exists bookings_user_idx on bookings(user_id);
+create index if not exists bookings_day_idx on bookings (date);
+
+create index if not exists bookings_user_idx on bookings (user_id);
 
 alter table profiles enable row level security;
+
 alter table bookings enable row level security;
+
 alter table settings enable row level security;
+
 alter table blocks enable row level security;
 
-create policy "profiles self read" on profiles for select
-  using (auth.uid() = id or exists (select 1 from profiles p where p.id = auth.uid() and p.role='admin'));
-create policy "profiles self update" on profiles for update using (auth.uid() = id);
+create policy "profiles self read" on profiles for
+select using (
+        auth.uid () = id
+        or exists (
+            select 1
+            from profiles p
+            where
+                p.id = auth.uid ()
+                and p.role = 'admin'
+        )
+    );
 
-create policy "bookings read authed" on bookings for select using (auth.role() is not null);
-create policy "bookings insert self" on bookings for insert with check (auth.uid() = user_id);
-create policy "bookings update own or admin" on bookings for update using (
-  auth.uid() = user_id or exists (select 1 from profiles p where p.id = auth.uid() and p.role='admin')
+create policy "profiles self update" on profiles for
+update using (auth.uid () = id);
+
+create policy "bookings read authed" on bookings for
+select using (auth.role () is not null);
+
+create policy "bookings insert self" on bookings for
+insert
+with
+    check (auth.uid () = user_id);
+
+create policy "bookings update own or admin" on bookings for
+update using (
+    auth.uid () = user_id
+    or exists (
+        select 1
+        from profiles p
+        where
+            p.id = auth.uid ()
+            and p.role = 'admin'
+    )
 );
 
-create policy "settings read all" on settings for select using (true);
-create policy "settings write admin" on settings for insert with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role='admin'));
-create policy "settings update admin" on settings for update using (exists (select 1 from profiles p where p.id = auth.uid() and p.role='admin'));
+create policy "settings read all" on settings for
+select using (true);
+
+create policy "settings write admin" on settings for
+insert
+with
+    check (
+        exists (
+            select 1
+            from profiles p
+            where
+                p.id = auth.uid ()
+                and p.role = 'admin'
+        )
+    );
+
+create policy "settings update admin" on settings for
+update using (
+    exists (
+        select 1
+        from profiles p
+        where
+            p.id = auth.uid ()
+            and p.role = 'admin'
+    )
+);
 
 create policy "blocks read all" on blocks for select using (true);
-create policy "blocks write admin" on blocks for insert with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role='admin'));
-create policy "blocks update admin" on blocks for update using (exists (select 1 from profiles p where p.id = auth.uid() and p.role='admin'));
-create policy "blocks delete admin" on blocks for delete using (exists (select 1 from profiles p where p.id = auth.uid() and p.role='admin'));
+
+create policy "blocks write admin" on blocks for
+insert
+with
+    check (
+        exists (
+            select 1
+            from profiles p
+            where
+                p.id = auth.uid ()
+                and p.role = 'admin'
+        )
+    );
+
+create policy "blocks update admin" on blocks for
+update using (
+    exists (
+        select 1
+        from profiles p
+        where
+            p.id = auth.uid ()
+            and p.role = 'admin'
+    )
+);
+
+create policy "blocks delete admin" on blocks for delete using (
+    exists (
+        select 1
+        from profiles p
+        where
+            p.id = auth.uid ()
+            and p.role = 'admin'
+    )
+);
 
 create or replace function create_booking(p_user_id uuid, p_date date, p_start time)
 returns bookings
