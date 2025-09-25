@@ -9,7 +9,7 @@ export default function Login(){
   const { register, login, profile, loading } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState<any>({ name:'', email:'', password:'', phone:'', organization:'' });
+  const [form, setForm] = useState<any>({ name:'', email:'', password:'', phone:'', organization_id:'' });
   const [error, setError] = useState<string|null>(null);
 
   // 👉 quando profile existir, sai desta tela
@@ -25,7 +25,7 @@ export default function Login(){
     try {
       const email = String(form.email || '').trim().toLowerCase();
       if (isRegister) {
-        await register({ name: form.name?.trim(), email, phone: form.phone?.trim(), organization: form.organization?.trim(), password: form.password });
+        await register({ name: form.name?.trim(), email, phone: form.phone?.trim(), organization_id: form.organization_id?.trim(), password: form.password });
       } else {
         await login(email, form.password);
       }
@@ -60,7 +60,7 @@ export default function Login(){
           <TextInput placeholder='Telefone' placeholderTextColor='#9aa0a6' style={styles.input}
             value={form.phone} onChangeText={t=> setForm({...form, phone:t})} />
           <TextInput placeholder='Faculdade/Empresa' placeholderTextColor='#9aa0a6' style={styles.input}
-            value={form.organization} onChangeText={t=> setForm({...form, organization:t})} />
+            value={form.organization_id} onChangeText={t=> setForm({...form, organization:t})} />
         </>
       )}
 
