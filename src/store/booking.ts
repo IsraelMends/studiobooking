@@ -20,7 +20,7 @@ export type Booking = {
     id: string;
     name: string | null;
     email: string | null;
-    organization: string | null;
+    organization_id: string | null;
   } | null;
 };
 
@@ -28,7 +28,7 @@ export type UserCard = {
   id: string;
   name: string | null;
   email: string | null;
-  organization: string | null;
+  organization_id: string | null;
 };
 
 export interface BookingState {
@@ -169,11 +169,11 @@ export const useBookings = create<BookingState>((set, get) => ({
   loadAdminUsers: async () => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, name, email, organization")
+      .select("id, name, email, organization_id")
       .order("name", { ascending: true });
 
     if (error) throw error;
-    set({ adminUsers: (data || []) as UserCard[] });
+    set({ adminUsers: (data || []) as unknown as UserCard[] });
   },
 
   // --------- Admin: reservas de um usuário (todas, futuras primeiro) ---------
@@ -181,7 +181,7 @@ export const useBookings = create<BookingState>((set, get) => ({
     // tenta com embed (requer FK: bookings.user_id -> profiles.id)
     let query = supabase
       .from("bookings")
-      .select("*, profiles:user_id (id, name, email, organization)")
+      .select("*, profiles:user_id (id, name, email, organization_id)")
       .eq("user_id", userId)
       .order("date", { ascending: true })
       .order("start_time", { ascending: true });
@@ -200,7 +200,7 @@ export const useBookings = create<BookingState>((set, get) => ({
 
       const prof = await supabase
         .from("profiles")
-        .select("id, name, email, organization")
+        .select("id, name, email, organization_id")
         .eq("id", userId)
         .single();
 
@@ -222,7 +222,7 @@ export const useBookings = create<BookingState>((set, get) => ({
     // com embed (requer FK)
     let q = supabase
       .from("bookings")
-      .select("*, profiles:user_id (id, name, email, organization)")
+      .select("*, profiles:user_id (id, name, email, organization_id)")
       .eq("date", dateISO)
       .order("start_time", { ascending: true });
 
@@ -241,7 +241,7 @@ export const useBookings = create<BookingState>((set, get) => ({
       if (userIds.length) {
         const p = await supabase
           .from("profiles")
-          .select("id, name, email, organization")
+          .select("id, name, email, organization_id")
           .in("id", userIds);
         if (p.error) throw p.error;
         (p.data || []).forEach((u) => {

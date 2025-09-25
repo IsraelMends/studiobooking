@@ -3,12 +3,13 @@ import { create } from "zustand";
 import { supabase } from "~/lib/supabase";
 
 type Profile = {
+  is_admin: any;
   id: string;
   role: "admin" | "user";
   name: string | null;
   email: string | null;
   phone: string | null;
-  organization: string | null;
+  organization_id: string | null;
   created_at: string;
 };
 
@@ -21,7 +22,7 @@ interface AuthState {
     name: string;
     email: string;
     phone?: string;
-    organization?: string;
+    organization_id?: string;
     password: string;
   }) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
@@ -71,13 +72,13 @@ export const useAuth = create<AuthState>((set, get) => ({
     const m = (user.user_metadata ?? {}) as any;
     const metaName = nz(m.name);
     const metaPhone = nz(m.phone);
-    const metaOrg = nz(m.organization);
+    const metaOrg = nz(m.organization_id); // 👈 agora é organization_id
     const metaRole = nz(m.role) ?? "user";
 
     // lê profiles
     const sel = await supabase
       .from("profiles")
-      .select("id, role, name, email, phone, organization, created_at")
+      .select("id, role, name, email, phone, organization_id, created_at")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -96,7 +97,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         name: displayName,
         email: user.email,
         phone: metaPhone,
-        organization: metaOrg,
+        organization_id: metaOrg,
       });
       if (ins.error) {
         console.log("profiles insert error:", ins.error);
@@ -105,7 +106,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       }
       const reread = await supabase
         .from("profiles")
-        .select("id, role, name, email, phone, organization, created_at")
+        .select("id, role, name, email, phone, organization_id, created_at")
         .eq("id", user.id)
         .single();
       if (reread.error) {
@@ -121,7 +122,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const row = sel.data as any;
     const rowName = nz(row.name);
     const rowPhone = nz(row.phone);
-    const rowOrg = nz(row.organization);
+    const rowOrg = nz(row.organization_id); // 👈 agora é organization_id
     const rowRole = nz(row.role) ?? "user";
 
     const next = {
@@ -130,7 +131,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       name: rowName ?? metaName ?? user.email?.split("@")[0] ?? "Usuário",
       email: nz(row.email) ?? user.email,
       phone: rowPhone ?? metaPhone,
-      organization: rowOrg ?? metaOrg, // 👈 agora vazio cai pro metadata
+      organization_id: rowOrg ?? metaOrg, // 👈 agora vazio cai pro metadata
       created_at: row.created_at,
     };
 
@@ -138,7 +139,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const needsUpdate =
       (rowName == null && next.name != null) ||
       (rowPhone == null && next.phone != null) ||
-      (rowOrg == null && next.organization != null) ||
+      (rowOrg == null && next.organization_id != null) ||
       (rowRole == null && next.role != null);
 
     if (needsUpdate) {
@@ -147,7 +148,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         .update({
           name: next.name,
           phone: next.phone,
-          organization: next.organization,
+          organization_id: next.organization_id,
           role: next.role,
         })
         .eq("id", user.id);
@@ -158,7 +159,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   // Registro: cria auth -> garante sessão -> insere profile -> carrega
-  register: async ({ name, email, phone, organization, password }) => {
+  register: async ({ name, email, phone, organization_id, password }) => {
     const cleanEmail = String(email).trim().toLowerCase();
 
     // 1) salvar metadados no usuário
@@ -166,7 +167,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       email: cleanEmail,
       password,
       options: {
-        data: { name, phone, organization, role: "user" }, // ← grava no user_metadata
+        data: { name, phone, organization_id, role: "user" }, // ← grava no user_metadata
       },
     });
     if (error) throw error;
@@ -191,7 +192,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       name,
       email: cleanEmail,
       phone,
-      organization,
+      organization_id,
     });
     if (up.error) throw up.error;
 
