@@ -1,244 +1,266 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  View, Text, TextInput, Pressable, ActivityIndicator, Alert,
-  KeyboardAvoidingView, Platform, ScrollView
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useForm } from "react-hook-form";
+import { Picker } from "@react-native-picker/picker";
+import { useForm, Controller } from "react-hook-form";
+
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { MaterialIcons as Icon } from "@expo/vector-icons";
+
+import { supabase } from "~/lib/supabase"; // ajuste o import conforme seu projeto
+import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "~/lib/supabase";
 
 import { styles } from "./styles";
-import { useAuth } from "~/store/auth";
-import { supabase } from "~/lib/supabase";
+import { th } from "date-fns/locale";
 
-const schema = z.object({
-  name: z.string().min(2, "Informe o nome completo"),
-  email: z.string().email("E-mail inválido"),
-  phone: z.string().min(10, "Telefone inválido").max(20),
-  organization: z.string().min(2, "Informe a faculdade/empresa"),
-  password: z.string().min(6, "Mínimo de 6 caracteres"),
-  confirm: z.string().min(6, "Confirme a senha"),
-}).refine((d) => d.password === d.confirm, {
-  path: ["confirm"], message: "As senhas não conferem",
+/** ================== NOOP STORAGE (para evitar warnings do Picker) ================== */
+const noopStorage = {
+  getItem: async (_key: string) => null,
+  setItem: async (_key: string, _value: string) => {},
+  removeItem: async (_key: string) => {},
+};
+
+/*================================ SUPABASE TEMP ================== */
+const supabaseTemp = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, storage: noopStorage as any },
 });
-type FormData = z.infer<typeof schema>;
 
-function maskPhone(raw: string) {
-  const d = raw.replace(/\D/g, "");
-  if (d.length <= 10) return d.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3").trim();
-  return d.replace(/(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3").trim();
-}
+/** ================== SCHEMA ================== */
+const RegisterSchema = z.object({
+  full_name: z.string().min(2, "Informe seu nome completo"),
+  email: z.string().email("E-mail inválido"),
+  password: z.string().min(6, "Mínimo de 6 caracteres"),
+  organization_id: z.string().uuid("Selecione uma organização válida"),
+});
 
-export default function AdminRegisterUser() {
-  const { profile } = useAuth();
-  const isAdmin = profile?.role === "admin";
+type RegisterForm = z.infer<typeof RegisterSchema>;
 
-  const { setValue, watch, handleSubmit, formState: { errors }, reset } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { name: "", email: "", phone: "", organization: "", password: "", confirm: "" },
-    mode: "onBlur",
+/** ================== UI ================== */
+export default function RegisterScreen() {
+  const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<RegisterForm>({
+    resolver: zodResolver(RegisterSchema),
+    defaultValues: {
+      full_name: "",
+      email: "",
+      password: "",
+      organization_id: "",
+    },
   });
-  const values = watch();
-  const [loading, setLoading] = useState(false);
 
-  const canSubmit = useMemo(() =>
-    !loading &&
-    values.name.length >= 2 &&
-    /\S+@\S+\.\S+/.test(values.email) &&
-    values.organization.length >= 2 &&
-    values.password.length >= 6 &&
-    values.password === values.confirm
-  , [loading, values]);
+  const selectedOrg = watch("organization_id");
 
-  if (!isAdmin) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.blockedCard}>
-          <Icon name="lock" size={40} color="#9aa0a6" />
-          <Text style={styles.blockedTitle}>Acesso restrito</Text>
-          <Text style={styles.blockedText}>Apenas administradores podem criar novos usuários.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  /** Carrega organizações para o Picker */
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("organizations")
+          .select("id, name")
+          .order("name", { ascending: true });
+        if (error) throw error;
+        if (isMounted) setOrgs(data ?? []);
+      } catch (err: any) {
+        console.error("Erro ao carregar organizações:", err?.message);
+        Alert.alert("Erro", "Não foi possível carregar as organizações.");
+      } finally {
+        if (isMounted) setLoadingOrgs(false);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  const onSubmit = async (data: FormData) => {
+  /** ================== SUBMIT ================== */
+  const withTimeout = async <T,>(
+    p: Promise<T>,
+    ms: number,
+    label: string
+  ): Promise<T> => {
+    return Promise.race([
+      p,
+      new Promise<T>((_, rej) =>
+        setTimeout(() => rej(new Error(`${label} timeout após ${ms}ms`)), ms)
+      ),
+    ]) as Promise<T>;
+  };
+
+  const onSubmit = async (vals: RegisterForm) => {
+    setSubmitting(true);
     try {
-      setLoading(true);
+      // usa o cliente temporário (stateless) para cadastrar
+      const { data: signUpRes, error: signUpErr } =
+        await supabaseTemp.auth.signUp({
+          email: vals.email,
+          password: vals.password,
+          options: {
+            data: {
+              full_name: vals.full_name,
+              organization_id: vals.organization_id,
+            },
+            // emailRedirectTo: 'seuapp://auth/callback', // opcional
+          },
+        });
 
-      // 1) Criar usuário NO AUTH (não troca a sessão do admin se email precisa confirmar)
-      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-        email: data.email.toLowerCase(),
-        password: data.password,
-        options: {
-          // redirecionamento do link de confirmação (se usar magic link/confirm email)
-          emailRedirectTo: "https://seu-dominio.app/confirm", // opcional
-          data: { name: data.name }, // user_metadata inicial (o trigger já usa)
-        },
-      });
-      if (signUpErr) throw signUpErr;
-
-      const newUserId = signUpData.user?.id;
-      if (!newUserId) {
-        // Em projetos com confirmação por e-mail, o user pode existir sem session
-        // O ID normalmente vem; se não vier, tente buscar por e-mail (fallback raro).
-        throw new Error("Não foi possível obter o ID do novo usuário.");
+      if (signUpErr) {
+        throw signUpErr;
       }
 
-      // 2) Atualizar PERFIL do novo usuário (admin tem permissão via RLS)
-      const { error: upErr } = await supabase
-        .from("profiles")
-        .update({
-          name: data.name,
-          email: data.email.toLowerCase(),
-          phone: data.phone.replace(/\D/g, ""),
-          organization: data.organization,
-          role: "user",
-        })
-        .eq("id", newUserId);
-      if (upErr) throw upErr;
-
-      reset();
-      Alert.alert(
-        "Usuário criado",
-        `O usuário ${data.name} foi criado com sucesso.\n\nE-mail: ${data.email}`
-      );
-    } catch (e: any) {
-      const msg = String(e?.message || e);
-      if (
-        msg.toLowerCase().includes("user already registered") ||
-        msg.toLowerCase().includes("already exists") ||
-        msg.toLowerCase().includes("duplicate")
-      ) {
-        Alert.alert("E-mail já cadastrado", "Este e-mail já está em uso.");
+      // Se confirmação por e-mail estiver ativada: user=null e session=null (normal)
+      const createdUser = signUpRes?.user ?? null;
+      if (!createdUser) {
+        Alert.alert(
+          "Sucesso",
+          "Conta criada! O usuário deve confirmar o e-mail para ativar o acesso."
+        );
       } else {
-        Alert.alert("Erro ao criar usuário", msg);
+        Alert.alert("Sucesso", "Conta criada com sucesso.");
       }
+    } catch (err: any) {
+      console.log(
+        "[register] erro:",
+        JSON.stringify(err, Object.getOwnPropertyNames(err))
+      );
+      const msg =
+        err?.message ||
+        err?.error_description ||
+        "Não foi possível criar a conta. Tente novamente.";
+      Alert.alert("Erro ao registrar", msg);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
+  /** ================== RENDER ================== */
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Cadastrar novo usuário</Text>
-          <Text style={styles.subtitle}>
-            Preencha os dados abaixo. O usuário será criado com papel <Text style={{ fontWeight: "800", color: "#fff" }}>padrão</Text>.
-          </Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Criar conta</Text>
 
-          {/* Nome */}
-          <View style={styles.inputGroup}>
+      <Controller
+        control={control}
+        name="full_name"
+        render={({ field: { onChange, value } }) => (
+          <View>
             <Text style={styles.label}>Nome completo</Text>
             <TextInput
-              style={[styles.input, errors.name && styles.inputError]}
-              placeholder="Ex.: Maria da Silva"
-              placeholderTextColor="#6b7280"
-              value={values.name}
-              onChangeText={(t) => setValue("name", t, { shouldValidate: true })}
+              value={value}
+              onChangeText={onChange}
+              placeholder="Seu nome"
               autoCapitalize="words"
+              style={styles.input}
+              placeholderTextColor="#9CA3AF"
+              selectionColor="#2563eb"
             />
-            {errors.name && <Text style={styles.errorText}>{errors.name.message}</Text>}
+            {!!errors.full_name && (
+              <Text style={styles.error}>{errors.full_name.message}</Text>
+            )}
           </View>
+        )}
+      />
 
-          {/* E-mail */}
-          <View style={styles.inputGroup}>
+      <Controller
+        control={control}
+        name="email"
+        render={({ field: { onChange, value } }) => (
+          <View>
             <Text style={styles.label}>E-mail</Text>
             <TextInput
-              style={[styles.input, errors.email && styles.inputError]}
-              placeholder="email@exemplo.com"
-              placeholderTextColor="#6b7280"
-              value={values.email}
-              onChangeText={(t) => setValue("email", t.toLowerCase(), { shouldValidate: true })}
+              value={value}
+              onChangeText={onChange}
+              placeholder="voce@empresa.com"
               autoCapitalize="none"
               keyboardType="email-address"
+              style={styles.input}
+              placeholderTextColor="#9CA3AF"
+              selectionColor="#2563eb"
             />
-            {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+            {!!errors.email && (
+              <Text style={styles.error}>{errors.email.message}</Text>
+            )}
           </View>
+        )}
+      />
 
-          {/* Telefone */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Telefone</Text>
-            <TextInput
-              style={[styles.input, errors.phone && styles.inputError]}
-              placeholder="(11) 99999-9999"
-              placeholderTextColor="#6b7280"
-              value={maskPhone(values.phone)}
-              onChangeText={(t) => setValue("phone", t, { shouldValidate: true })}
-              keyboardType="phone-pad"
-            />
-            {errors.phone && <Text style={styles.errorText}>{errors.phone.message}</Text>}
-          </View>
-
-          {/* Organização */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Faculdade/Empresa</Text>
-            <TextInput
-              style={[styles.input, errors.organization && styles.inputError]}
-              placeholder="Ex.: Faculvale"
-              placeholderTextColor="#6b7280"
-              value={values.organization}
-              onChangeText={(t) => setValue("organization", t, { shouldValidate: true })}
-              autoCapitalize="words"
-            />
-            {errors.organization && <Text style={styles.errorText}>{errors.organization.message}</Text>}
-          </View>
-
-          {/* Senha */}
-          <View style={styles.inputGroup}>
+      <Controller
+        control={control}
+        name="password"
+        render={({ field: { onChange, value } }) => (
+          <View>
             <Text style={styles.label}>Senha</Text>
             <TextInput
-              style={[styles.input, errors.password && styles.inputError]}
-              placeholder="Mínimo 6 caracteres"
-              placeholderTextColor="#6b7280"
-              value={values.password}
-              onChangeText={(t) => setValue("password", t, { shouldValidate: true })}
+              value={value}
+              onChangeText={onChange}
+              placeholder="••••••••"
               secureTextEntry
-              autoCapitalize="none"
+              style={styles.input}
+              placeholderTextColor="#9CA3AF"
+              selectionColor="#2563eb"
             />
-            {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
-          </View>
-
-          {/* Confirmar Senha */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirmar senha</Text>
-            <TextInput
-              style={[styles.input, errors.confirm && styles.inputError]}
-              placeholder="Repita a senha"
-              placeholderTextColor="#6b7280"
-              value={values.confirm}
-              onChangeText={(t) => setValue("confirm", t, { shouldValidate: true })}
-              secureTextEntry
-              autoCapitalize="none"
-            />
-            {errors.confirm && <Text style={styles.errorText}>{errors.confirm.message}</Text>}
-          </View>
-
-          {/* Botão */}
-          <Pressable
-            onPress={handleSubmit(onSubmit)}
-            disabled={!canSubmit}
-            style={({ pressed }) => [
-              styles.submitBtn,
-              { opacity: !canSubmit || pressed ? 0.7 : 1 },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Criar usuário"
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Icon name="person-add" size={18} color="#fff" />
-                <Text style={styles.submitText}>Criar usuário</Text>
-              </>
+            {!!errors.password && (
+              <Text style={styles.error}>{errors.password.message}</Text>
             )}
-          </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          </View>
+        )}
+      />
+
+      <View>
+        <Text style={styles.label}>Organização</Text>
+        {loadingOrgs ? (
+          <View style={{ paddingVertical: 12 }}>
+            <ActivityIndicator />
+          </View>
+        ) : (
+          <Picker
+            selectedValue={selectedOrg}
+            onValueChange={(val) => setValue("organization_id", String(val))}
+            style={styles.picker}
+            dropdownIconColor="#f9fafb"
+          >
+            <Picker.Item label="Selecione..." value="" color="#9CA3AF" />
+            {orgs.map((o) => (
+              <Picker.Item
+                key={o.id}
+                label={o.name}
+                value={o.id}
+                color="#F9FAFB"
+              />
+            ))}
+          </Picker>
+        )}
+        {!!errors.organization_id && (
+          <Text style={styles.error}>{errors.organization_id.message}</Text>
+        )}
+      </View>
+
+      <TouchableOpacity
+        disabled={submitting}
+        onPress={handleSubmit(onSubmit)}
+        style={[styles.button, submitting && { opacity: 0.6 }]}
+      >
+        {submitting ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Registrar</Text>
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
