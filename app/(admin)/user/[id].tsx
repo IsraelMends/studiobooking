@@ -44,7 +44,7 @@ function BookingRow({
     date: string;
     start_time: string;
     status: "active" | "canceled" | "completed";
-    profiles?: { name?: string | null; email?: string | null; organization?: string | null } | null;
+    profiles?: { name?: string | null; email?: string | null; organization_id?: string | null } | null;
   };
   onCancelPress: (id: string) => Promise<void>;
 }) {
@@ -66,7 +66,7 @@ function BookingRow({
     item.profiles?.name ??
     item.profiles?.email ??
     "Usuário";
-  const org = item.profiles?.organization;
+  const org = item.profiles?.organization_id;
 
   const badgeText = isCanceled ? "Cancelada" : done ? "Concluída" : "Ativa";
   const badgeIcon = isCanceled ? "cancel" : done ? "check-circle" : "schedule";
