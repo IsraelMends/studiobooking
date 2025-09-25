@@ -52,7 +52,7 @@ function AdminBookingRow({
     date: string;
     start_time: string;
     status: "active" | "canceled" | "completed";
-    profiles?: { name?: string | null; email?: string | null; organization?: string | null } | null;
+    profiles?: { name?: string | null; email?: string | null; organization_id?: string};
   };
   onCanceled: () => Promise<void>;
 }) {

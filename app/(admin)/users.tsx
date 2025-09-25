@@ -53,9 +53,9 @@ export default function AdminUsers() {
                 {item.name ?? item.email}
               </Text>
               <Text style={{ color: "#9aa0a6" }}>{item.email}</Text>
-              {!!item.organization && (
+              {!!item.organization_id && (
                 <Text style={{ color: "#9aa0a6" }}>
-                  Org: {item.organization}
+                  Org: {item.organization_id}
                 </Text>
               )}
             </Pressable>
