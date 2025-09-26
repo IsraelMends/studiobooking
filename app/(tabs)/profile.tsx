@@ -1,4 +1,4 @@
-// app/(tabs)/profile.tsx
+import React from 'react';
 import { useCallback } from 'react';
 import {
   View,

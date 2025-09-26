@@ -1,4 +1,3 @@
-// app/(tabs)/schedule.tsx
 import { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,

@@ -1,4 +1,4 @@
-// app/(tabs)/bookings.tsx
+import React from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
   View,
