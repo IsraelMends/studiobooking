@@ -4,27 +4,27 @@ import {
   View,
   Text,
   Pressable,
-  StyleSheet,
-  Platform,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialIcons } from "@expo/vector-icons"; // Para ícones (instale se necessário: npx expo install @expo/vector-icons)
+import { MaterialIcons } from "@expo/vector-icons"; 
 
 import { useBookings } from "../../src/store/booking";
 import { useAuth } from "../../src/store/auth";
 
 import { useRouter } from "expo-router";
-import { useFocusEffect } from "expo-router"; // Corrigido: import de expo-router
+import { useFocusEffect } from "expo-router";
+
+import styles from "../styles";
 
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale"; // Para formatação em PT-BR (adicione se não tiver)
+import { ptBR } from "date-fns/locale";
 
 export default function Home() {
   const { myNext, loadMyNext } = useBookings();
   const { profile } = useAuth();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true); // Estado de loading
+  const [isLoading, setIsLoading] = useState(true);
 
   // Saudação dinâmica baseada na hora
   const getGreeting = () => {
@@ -209,129 +209,3 @@ export default function Home() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0b0f13",
-    padding: 16,
-    gap: 20,
-  },
-  greeting: {
-    color: "#ffffff",
-    fontSize: 24,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  card: {
-    backgroundColor: "#11161b",
-    borderRadius: 16,
-    padding: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 8,
-  },
-  cardTitle: {
-    color: "#9aa0a6",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  nextBookingDate: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  durationText: {
-    color: "#9aa0a6",
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  noBookingText: {
-    color: "#9aa0a6",
-    fontSize: 16,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  actionButton: {
-    flexDirection: "row",
-    backgroundColor: "#20232a",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  adminSection: {
-    gap: 12,
-  },
-  sectionTitle: {
-    color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  adminCards: {
-    gap: 12,
-  },
-  adminCard: {
-    flexDirection: "row",
-    backgroundColor: "#1a2a33",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    gap: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  cardContent: {
-    flex: 1,
-  },
-  adminCardTitle: {
-    color: "#ffffff",
-    fontWeight: "800",
-    fontSize: 16,
-  },
-  adminCardSubtitle: {
-    color: "#9aa0a6",
-    fontSize: 14,
-    marginTop: 2,
-  },
-  loading: {
-    marginTop: 100,
-  },
-  loadingText: {
-    color: "#ffffff",
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 8,
-  },
-});

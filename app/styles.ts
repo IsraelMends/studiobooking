@@ -410,6 +410,75 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#667eea',
   },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
+  },
+  nextBookingDate: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  durationText: {
+    color: "#9aa0a6",
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  noBookingText: {
+    color: "#9aa0a6",
+    fontSize: 16,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  buttonText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  adminSection: {
+    gap: 12,
+  },
+  adminCards: {
+    gap: 12,
+  },
+  adminCard: {
+    flexDirection: "row",
+    backgroundColor: "#1a2a33",
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  cardContent: {
+    flex: 1,
+  },
+  adminCardTitle: {
+    color: "#ffffff",
+    fontWeight: "800",
+    fontSize: 16,
+  },
+  adminCardSubtitle: {
+    color: "#9aa0a6",
+    fontSize: 14,
+    marginTop: 2,
+  },
+  loading: {
+    marginTop: 100,
+  },
 });
 
 export default styles;
