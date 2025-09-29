@@ -121,8 +121,14 @@ export default function Schedule() {
 
       setIsLoading(true);
       try {
-        const b = await fetchDayBookings(date);
-        setDayBookings(b);
+      if (!profile?.organization_id) {
+        setAvailable([]);
+        setDayBookings([]);
+        setIsLoading(false);
+        return;
+      }
+      const b = await fetchDayBookings(date, profile.organization_id);
+      setDayBookings(b);
 
         const mapped = b.map((x: any) => ({
           id: x.id,
@@ -186,16 +192,17 @@ export default function Schedule() {
         return;
       }
       await createBooking(
-        profile.organization_id,
         profile.id,
+        profile.organization_id, // <- novo arg
         date,
         selectedTime,
         selectedDevices
       );
+      setAvailable(prev => prev.filter(t => t !== selectedTime));
       Vibration.vibrate(100); // Feedback háptico opcional (iOS/Android)
 
       // Recarrega dados do dia
-      const b = await fetchDayBookings(date);
+      const b = await fetchDayBookings(date, profile!.organization_id);
       setDayBookings(b);
       const mapped = b.map((x: any) => ({
         id: x.id,
