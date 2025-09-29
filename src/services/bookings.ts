@@ -15,17 +15,17 @@ type DayBooking = {
 };
 
 // Busca reservas de um dia
-export async function fetchDayBookings(dateISO: string): Promise<DayBooking[]> {
+export async function fetchDayBookings(dateYYYYMMDD: string, orgId: string) {
   const { data, error } = await supabase
-    .from("bookings")
-    .select(
-      "id, organization_id, user_id, date, start_time, end_time, buffer_until, status, created_at, devices"
-    )
-    .eq("date", dateISO)
-    .order("start_time", { ascending: true });
-
+    .from('bookings')
+    .select('id, user_id, date, start_time, end_time, buffer_until, status, created_at, room_id, devices, organization_id')
+    .eq('date', dateYYYYMMDD)
+    .eq('organization_id', orgId)
+    .neq('status', 'canceled')
+    .neq('status', 'cancelled')
+    .order('start_time', { ascending: true });
   if (error) throw error;
-  return (data ?? []) as DayBooking[];
+  return data ?? [];
 }
 
 // Soma de segundos já reservados por organização naquele dia (somente status ativos)
@@ -53,36 +53,39 @@ export async function getOrgReservedSeconds(orgId: string, dateISO: string) {
 
 // Cria reserva (60min + 10min buffer, ajuste se quiser)
 export async function createBooking(
-  organizationId: string,
   userId: string,
-  dateISO: string,
+  orgId: string,               // <- novo parâmetro
+  dateYYYYMMDD: string,
   startHHMM: string,
-  devices: string[]
+  devices: string[],
+  roomId = 'default'
 ) {
-  // calcula fim (60min) e buffer (10min)
-  const [h, m] = startHHMM.split(":").map(Number);
-  const start = new Date(`${dateISO}T${startHHMM}:00`);
-  const end = new Date(start.getTime() + 60 * 60 * 1000);
-  const buffer = new Date(end.getTime() + 10 * 60 * 1000);
+  // calcula fim +60min (ajuste se sua duração for outra)
+  const [h, m] = startHHMM.split(':').map(Number);
+  const end = new Date(2000, 0, 1, h, m);
+  end.setMinutes(end.getMinutes() + 60);
+  const endHH = String(end.getHours()).padStart(2, '0');
+  const endMM = String(end.getMinutes()).padStart(2, '0');
 
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const payload = {
+    user_id: userId,
+    organization_id: orgId,     // <- ESSENCIAL
+    date: dateYYYYMMDD,
+    start_time: `${startHHMM}:00`,
+    end_time: `${endHH}:${endMM}:00`,
+    status: 'active',
+    room_id: roomId,
+    devices: devices.join(', '), // (ou use JSONB, se preferir)
+  };
 
-  const insertData = {
-       organization_id: organizationId,
-       user_id: userId,
-       date: dateISO,
-       start_time: startHHMM,
-       end_time: hhmm(end),
-       buffer_until: `${dateISO} ${hhmm(buffer)}`,
-       status: "active",
-       devices, // Mantenha por enquanto
-     };
-     
-     const { error } = await supabase.from("bookings").insert(insertData);
-     if (error) {
-       throw error;
-     }
+  const { data, error } = await supabase
+    .from('bookings')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function cancelBooking(
