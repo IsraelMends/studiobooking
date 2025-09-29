@@ -3,17 +3,16 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  Platform,
   ScrollView,
-  StyleSheet,
-  Modal, // Adicionado para o modal de seleção de aparelhos
+  Modal,
   Text,
-  Vibration, // Opcional para feedback háptico
+  Vibration,
   View,
 } from "react-native";
+import styles from "../styles";
 import { Calendar } from "react-native-calendars";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialIcons } from "@expo/vector-icons"; // Para ícones
+import { MaterialIcons } from "@expo/vector-icons";
 
 import { buildAvailableSlots } from "~/utils/dates";
 import { useSettings } from "~/store/settings";
@@ -27,13 +26,13 @@ import { useAuth } from "~/store/auth";
 import React from "react";
 
 function pad(n: number) {
-  return String(n).padStart(2, "0");
+  return String(n).padStart(2, '0');
 }
 function toLocalDateString(d = new Date()) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 function isPastDate(dateStr: string) {
-  const [y, m, d] = dateStr.split("-").map(Number);
+  const [y, m, d] = dateStr.split('-').map(Number);
   const selected = new Date(y, m - 1, d, 0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -47,11 +46,19 @@ function nowHHMM() {
   return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
-// Fallback para EmptyState se não existir em ~/components/UI
+function toHHMM(t?: string | null) {
+  if (!t) return undefined as any;
+  return t.slice(0, 5);
+}
+function hhmmToMin(hhmm: string) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
 function EmptyState({
   title,
   subtitle,
-  iconName = "event-busy",
+  iconName = 'event-busy',
 }: {
   title: string;
   subtitle: string;
@@ -66,14 +73,7 @@ function EmptyState({
   );
 }
 
-// Fallback para Card se não existir
-function Card({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
@@ -90,22 +90,14 @@ export default function Schedule() {
   const [date, setDate] = useState<string>(today);
   const [available, setAvailable] = useState<string[]>([]);
   const [dayBookings, setDayBookings] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Loading global
-  const [isCreating, setIsCreating] = useState(false); // Loading para criação
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
 
-  // Novos estados para o modal de aparelhos
   const [showDeviceModal, setShowDeviceModal] = useState(false);
-  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
 
-  // Lista de aparelhos disponíveis (pode ser movida para settings ou API no futuro)
-  const devices = [
-    "Cameras",
-    "Microfones",
-    "Tripés",
-    "Iluminação",
-    "Refletores",
-  ];
+  const devices = ['Cameras', 'Microfones', 'Tripés', 'Iluminação', 'Refletores'];
 
   useEffect(() => {
     load().finally(() => setIsLoading(false));
@@ -118,25 +110,26 @@ export default function Schedule() {
         setDayBookings([]);
         return;
       }
-
-      setIsLoading(true);
-      try {
       if (!profile?.organization_id) {
         setAvailable([]);
         setDayBookings([]);
-        setIsLoading(false);
         return;
       }
-      const b = await fetchDayBookings(date, profile.organization_id);
-      setDayBookings(b);
+
+      setIsLoading(true);
+      try {
+        const raw = await fetchDayBookings(date, profile.organization_id);
+        const b = (raw ?? []).filter((x: any) => x?.start_time && x?.end_time);
+
+        setDayBookings(b);
 
         const mapped = b.map((x: any) => ({
           id: x.id,
           userId: x.user_id,
           date: x.date,
-          startTime: x.start_time,
-          endTime: x.end_time,
-          bufferUntil: x.buffer_until,
+          startTime: toHHMM(x.start_time),
+          endTime: toHHMM(x.end_time),
+          bufferUntil: x.buffer_until ? toHHMM(x.buffer_until) : undefined,
           status: x.status,
           createdAt: x.created_at,
         }));
@@ -150,36 +143,31 @@ export default function Schedule() {
         ) as string[];
 
         if (isToday(date)) {
-          const now = nowHHMM();
-          av = av.filter((t) => t >= now);
+          const nowM = hhmmToMin(nowHHMM());
+          av = av.filter((t) => hhmmToMin(t) >= nowM);
         }
 
         setAvailable(av);
       } catch (error) {
-        console.error("Erro ao carregar dados do dia:", error);
-        Alert.alert("Erro", "Falha ao carregar horários. Tente novamente.");
+        console.error('Erro ao carregar dados do dia:', error);
+        Alert.alert('Erro', 'Falha ao carregar horários. Tente novamente.');
       } finally {
         setIsLoading(false);
       }
     };
 
     loadData();
-  }, [date, settings, blocks]);
+  }, [date, settings, blocks, profile?.organization_id]);
 
   const toggleDevice = useCallback((device: string) => {
     setSelectedDevices((prev) =>
-      prev.includes(device)
-        ? prev.filter((d) => d !== device)
-        : [...prev, device]
+      prev.includes(device) ? prev.filter((d) => d !== device) : [...prev, device]
     );
   }, []);
 
   const confirmBooking = useCallback(async () => {
     if (selectedDevices.length === 0) {
-      Alert.alert(
-        "Seleção Obrigatória",
-        "Você deve selecionar pelo menos um aparelho para continuar."
-      );
+      Alert.alert('Seleção Obrigatória', 'Você deve selecionar pelo menos um aparelho para continuar.');
       return;
     }
 
@@ -187,106 +175,89 @@ export default function Schedule() {
     setIsCreating(true);
     try {
       if (!profile || !profile.organization_id) {
-        Alert.alert("Erro", "Você precisa estar logado e ter uma organização válida para agendar.");
+        Alert.alert('Erro', 'Você precisa estar logado e ter uma organização válida para agendar.');
         setIsCreating(false);
         return;
       }
+
+      // Cria reserva no backend
       await createBooking(
         profile.id,
-        profile.organization_id, // <- novo arg
+        profile.organization_id,
         date,
         selectedTime,
         selectedDevices
       );
-      setAvailable(prev => prev.filter(t => t !== selectedTime));
-      Vibration.vibrate(100); // Feedback háptico opcional (iOS/Android)
 
-      // Recarrega dados do dia
-      const b = await fetchDayBookings(date, profile!.organization_id);
-      setDayBookings(b);
-      const mapped = b.map((x: any) => ({
-        id: x.id,
-        userId: x.user_id,
-        date: x.date,
-        startTime: x.start_time,
-        endTime: x.end_time,
-        bufferUntil: x.buffer_until,
-        status: x.status,
-        createdAt: x.created_at,
-      }));
+      // Atualização otimista do estado local
 
-      let av = buildAvailableSlots(
-        date,
-        settings!.openTime,
-        settings!.closeTime,
-        mapped as any,
-        blocks as any
-      ) as string[];
+      // Remove o horário reservado da lista disponível
+      setAvailable((prev) => prev.filter((t) => t !== selectedTime));
 
-      if (isToday(date)) {
-        const now = nowHHMM();
-        av = av.filter((tt) => tt >= now);
-      }
+      // Adiciona a nova reserva no dayBookings localmente
+      setDayBookings((prev) => [
+        ...prev,
+        {
+          id: `temp-${Date.now()}`, // id temporário
+          user_id: profile.id,
+          date,
+          start_time: selectedTime,
+          end_time: (() => {
+            // calcula 60 minutos depois
+            const [h, m] = selectedTime.split(':').map(Number);
+            let endH = h;
+            let endM = m + 60;
+            if (endM >= 60) {
+              endH += Math.floor(endM / 60);
+              endM = endM % 60;
+            }
+            return `${pad(endH)}:${pad(endM)}`;
+          })(),
+          buffer_until: (() => {
+            // calcula 10 minutos buffer depois do end_time
+            const [h, m] = selectedTime.split(':').map(Number);
+            let bufferH = h;
+            let bufferM = m + 70; // 60 + 10
+            if (bufferM >= 60) {
+              bufferH += Math.floor(bufferM / 60);
+              bufferM = bufferM % 60;
+            }
+            return `${pad(bufferH)}:${pad(bufferM)}`;
+          })(),
+          status: 'active',
+          created_at: new Date().toISOString(),
+        },
+      ]);
 
-      setAvailable(av);
+      Vibration.vibrate(100);
+
       Alert.alert(
-        "Sucesso!",
-        `Reserva criada com sucesso para ${selectedTime}. Aparelhos: ${selectedDevices.join(
-          ", "
-        )}. Você receberá uma confirmação.`
+        'Sucesso!',
+        `Reserva criada com sucesso para ${selectedTime}. Aparelhos: ${selectedDevices.join(', ')}.`
       );
     } catch (e: any) {
-      Alert.alert(
-        "Erro ao Agendar",
-        e.message || "Tente novamente mais tarde."
-      );
+      Alert.alert('Erro ao Agendar', e?.message || 'Tente novamente mais tarde.');
     } finally {
       setIsCreating(false);
-      setSelectedDevices([]); // Reset da seleção
-      setSelectedTime(""); // Reset do horário
+      setSelectedDevices([]);
+      setSelectedTime('');
     }
-  }, [profile, date, selectedTime, selectedDevices, settings, blocks]);
+  }, [profile, date, selectedTime, selectedDevices]);
 
   const onPick = useCallback(
     async (t: string) => {
       if (!profile) {
-        Alert.alert("Erro", "Você precisa estar logado para agendar.");
+        Alert.alert('Erro', 'Você precisa estar logado para agendar.');
         return;
       }
-
-      if (isToday(date) && t < nowHHMM()) {
-        Alert.alert(
-          "Horário Inválido",
-          "Não é possível reservar para um horário já passado. Escolha outro."
-        );
+      if (isToday(date) && hhmmToMin(t) < hhmmToMin(nowHHMM())) {
+        Alert.alert('Horário Inválido', 'Não é possível reservar para um horário já passado.');
         return;
       }
       if (isPastDate(date)) {
-        Alert.alert(
-          "Data Inválida",
-          "Não é possível reservar em datas anteriores a hoje."
-        );
+        Alert.alert('Data Inválida', 'Não é possível reservar em datas anteriores a hoje.');
         return;
       }
-      // Verifica limite de 3 horas para não-admins
-      try {
-        if (!profile.organization_id) {
-          Alert.alert("Erro", "Organização inválida para agendamento.");
-          return;
-        }
-        const totalSecs = await getOrgReservedSeconds(
-          profile.organization_id,
-          date
-        );
-        const willBe = totalSecs + 3600; // +60min
-        if (!profile.is_admin && willBe > 3 * 3600) {
-          Alert.alert(
-            "Limite Atingido",
-            "A empresa já possui 3 horas reservadas neste dia."
-          );
-          return;
-        }
-      } catch {}
 
       setSelectedTime(t);
       setSelectedDevices([]);
@@ -300,6 +271,32 @@ export default function Schedule() {
     setDate(day.dateString);
   }, []);
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'schedule';
+      case 'completed':
+        return 'check-circle';
+      case 'canceled':
+        return 'cancel';
+      default:
+        return 'help';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return '#10b981';
+      case 'completed':
+        return '#3b82f6';
+      case 'canceled':
+        return '#ef4444';
+      default:
+        return '#9aa0a6';
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -310,32 +307,6 @@ export default function Schedule() {
       </SafeAreaView>
     );
   }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "active":
-        return "schedule";
-      case "completed":
-        return "check-circle";
-      case "canceled":
-        return "cancel";
-      default:
-        return "help";
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "#10b981";
-      case "completed":
-        return "#3b82f6";
-      case "canceled":
-        return "#ef4444";
-      default:
-        return "#9aa0a6";
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -349,26 +320,26 @@ export default function Schedule() {
         <Calendar
           minDate={today}
           onDayPress={onDayPress}
-          markedDates={{ [date]: { selected: true, selectedColor: "#20232a" } }}
+          markedDates={{ [date]: { selected: true, selectedColor: '#20232a' } }}
           theme={{
-            backgroundColor: "#0b0f13",
-            calendarBackground: "#0b0f13",
-            textSectionTitleColor: "#ffffff",
-            textSectionTitleDisabledColor: "#9aa0a6",
-            selectedDayBackgroundColor: "#20232a",
-            selectedDayTextColor: "#ffffff",
-            todayTextColor: "#10b981",
-            dayTextColor: "#ffffff",
-            textDisabledColor: "#555555",
-            dotColor: "#9aa0a6",
-            selectedDotColor: "#ffffff",
-            arrowColor: "#ffffff",
-            disabledArrowColor: "#555555",
-            monthTextColor: "#ffffff",
-            indicatorColor: "#20232a",
-            textDayFontWeight: "300",
-            textMonthFontWeight: "bold",
-            textDayHeaderFontWeight: "300",
+            backgroundColor: '#0b0f13',
+            calendarBackground: '#0b0f13',
+            textSectionTitleColor: '#ffffff',
+            textSectionTitleDisabledColor: '#9aa0a6',
+            selectedDayBackgroundColor: '#20232a',
+            selectedDayTextColor: '#ffffff',
+            todayTextColor: '#10b981',
+            dayTextColor: '#ffffff',
+            textDisabledColor: '#555555',
+            dotColor: '#9aa0a6',
+            selectedDotColor: '#ffffff',
+            arrowColor: '#ffffff',
+            disabledArrowColor: '#555555',
+            monthTextColor: '#ffffff',
+            indicatorColor: '#20232a',
+            textDayFontWeight: '300',
+            textMonthFontWeight: 'bold',
+            textDayHeaderFontWeight: '300',
             textDayFontSize: 16,
             textMonthFontSize: 18,
             textDayHeaderFontSize: 14,
@@ -389,9 +360,7 @@ export default function Schedule() {
                 disabled={isCreating || showDeviceModal}
                 style={({ pressed }) => [
                   styles.slotButton,
-                  {
-                    opacity: pressed || isCreating || showDeviceModal ? 0.7 : 1,
-                  },
+                  { opacity: pressed || isCreating || showDeviceModal ? 0.7 : 1 },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`Agendar para ${t} - Duração 60 minutos`}
@@ -410,9 +379,34 @@ export default function Schedule() {
             />
           )}
         </View>
+
+        {dayBookings?.length > 0 && (
+          <Card title="Reservas do dia">
+            {dayBookings.map((b) => (
+              <View
+                key={b.id}
+                style={[
+                  styles.bookingCard,
+                  { borderLeftColor: getStatusColor(b.status) },
+                ]}
+              >
+                <MaterialIcons
+                  name={getStatusIcon(b.status) as any}
+                  size={20}
+                  color={getStatusColor(b.status)}
+                />
+                <View style={styles.bookingInfo}>
+                  <Text style={styles.bookingTime}>
+                    {toHHMM(b.start_time)} → {toHHMM(b.end_time)}
+                  </Text>
+                  <Text style={styles.bookingStatus}>{b.status}</Text>
+                </View>
+              </View>
+            ))}
+          </Card>
+        )}
       </ScrollView>
 
-      {/* Modal para seleção de aparelhos */}
       <Modal
         visible={showDeviceModal}
         animationType="slide"
@@ -420,26 +414,16 @@ export default function Schedule() {
         statusBarTranslucent={false}
       >
         <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>
-            Selecione os Aparelhos a Utilizar
-          </Text>
+          <Text style={styles.modalTitle}>Selecione os Aparelhos a Utilizar</Text>
           <Text style={styles.modalSubtitle}>
             Horário: {selectedTime} | Data: {date} | Duração: 60min
           </Text>
 
           <View style={styles.devicesList}>
             {devices.map((device) => (
-              <Pressable
-                key={device}
-                onPress={() => toggleDevice(device)}
-                style={styles.deviceItem}
-              >
+              <Pressable key={device} onPress={() => toggleDevice(device)} style={styles.deviceItem}>
                 <MaterialIcons
-                  name={
-                    selectedDevices.includes(device)
-                      ? "check-box"
-                      : "check-box-outline-blank"
-                  }
+                  name={selectedDevices.includes(device) ? 'check-box' : 'check-box-outline-blank'}
                   size={24}
                   color="#ffffff"
                 />
@@ -461,7 +445,7 @@ export default function Schedule() {
           >
             <Text style={styles.confirmButtonText}>
               Confirmar Reserva ({selectedDevices.length} selecionado
-              {selectedDevices.length !== 1 ? "s" : ""})
+              {selectedDevices.length !== 1 ? 's' : ''})
             </Text>
           </Pressable>
 
@@ -469,12 +453,9 @@ export default function Schedule() {
             onPress={() => {
               setShowDeviceModal(false);
               setSelectedDevices([]);
-              setSelectedTime("");
+              setSelectedTime('');
             }}
-            style={({ pressed }) => [
-              styles.cancelButton,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
+            style={({ pressed }) => [styles.cancelButton, { opacity: pressed ? 0.7 : 1 }]}
           >
             <Text style={styles.cancelButtonText}>Cancelar</Text>
           </Pressable>
@@ -483,209 +464,3 @@ export default function Schedule() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0b0f13",
-  },
-  scrollContent: {
-    padding: 16,
-    backgroundColor: "#0b0f13",
-    flexGrow: 1,
-  },
-  title: {
-    color: "#ffffff",
-    fontSize: 24,
-    fontWeight: "800",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  sectionTitle: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 24,
-    marginBottom: 12,
-  },
-  slotsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 24,
-  },
-  slotButton: {
-    flexDirection: "row",
-    backgroundColor: "#11161b",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    gap: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  slotText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  slotBuffer: {
-    color: "#9aa0a6",
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  card: {
-    backgroundColor: "#11161b",
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  cardTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  bookingCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 12,
-    backgroundColor: "#20232a",
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    marginBottom: 8,
-  },
-  bookingInfo: {
-    flex: 1,
-  },
-  bookingTime: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  bookingStatus: {
-    color: "#9aa0a6",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#0b0f13",
-  },
-  loadingText: {
-    color: "#ffffff",
-    fontSize: 16,
-    marginTop: 8,
-    textAlign: "center",
-  },
-  emptyContainer: {
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#20232a",
-    borderRadius: 12,
-    marginTop: 12,
-  },
-  emptyTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    color: "#9aa0a6",
-    fontSize: 14,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  // Novos estilos para o modal
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#0b0f13",
-    padding: 20,
-  },
-  modalTitle: {
-    color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  modalSubtitle: {
-    color: "#9aa0a6",
-    fontSize: 14,
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  devicesList: {
-    width: "100%",
-    maxHeight: 300,
-    marginBottom: 20,
-  },
-  deviceItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#11161b",
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  deviceText: {
-    color: "#ffffff",
-    fontSize: 16,
-    marginLeft: 12,
-  },
-  confirmButton: {
-    backgroundColor: "#10b981",
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  confirmButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  cancelButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ef4444",
-  },
-  cancelButtonText: {
-    color: "#ef4444",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  disabledButton: {
-    backgroundColor: "#555555",
-  },
-});
