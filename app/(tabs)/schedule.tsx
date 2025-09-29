@@ -9,7 +9,9 @@ import {
   Vibration,
   View,
 } from "react-native";
+
 import styles from "../styles";
+
 import { Calendar } from "react-native-calendars";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -20,7 +22,6 @@ import { useSettings } from "~/store/settings";
 import {
   fetchDayBookings,
   createBooking,
-  getOrgReservedSeconds,
 } from "~/services/bookings";
 import { useAuth } from "~/store/auth";
 import React from "react";
