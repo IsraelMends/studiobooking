@@ -1,0 +1,40 @@
+name: iOS Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ios:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install pods
+        run: |
+          cd ios
+          pod install --repo-update
+        shell: bash
+
+      - name: Build .ipa
+        run: |
+          xcodebuild -workspace ios/*.xcworkspace             -scheme studiobooking             -configuration Release             -sdk iphoneos             -archivePath $PWD/build/studiobooking.xcarchive archive             CODE_SIGNING_ALLOWED=NO
+          xcodebuild -exportArchive             -archivePath $PWD/build/studiobooking.xcarchive             -exportOptionsPlist ios/exportOptions.plist             -exportPath $PWD/build
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release.ipa
+          path: build/*.ipa
