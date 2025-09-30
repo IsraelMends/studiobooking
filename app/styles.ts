@@ -10,6 +10,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#0b0f13",
     flexGrow: 1,
   },
+  picker:{
+    backgroundColor: "#101114",
+    color: "white",
+    borderRadius: 12,
+  },
+  error:{
+    color: "#ef4444",
+    marginTop: 4,
+  },
+  button:{
+    backgroundColor: "#10b981",
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 8,
+  },
   title: {
     color: "#ffffff",
     fontSize: 24,
@@ -106,7 +122,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  
+
   emptyContainer: {
     alignItems: "center",
     padding: 20,
@@ -220,7 +236,7 @@ const styles = StyleSheet.create({
   badgeContainer: {
     marginTop: 8,
   },
-  
+
   header: {
     paddingTop: 40,
     paddingBottom: 32,
@@ -324,6 +340,14 @@ const styles = StyleSheet.create({
   loading: {
     marginTop: 100,
   },
+  input: {
+    backgroundColor: "#101114",
+    color: "white",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  label: { color: "white", marginTop: 4, marginBottom: 4 },
 });
 
 export default styles;
