@@ -243,10 +243,18 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "rgba(255, 255, 255, 0.3)",
   },
-
-  
-  
-  
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#0b0f13",
+  },
+  loadingText: {
+    color: "#ffffff",
+    fontSize: 16,
+    marginTop: 8,
+    textAlign: "center",
+  },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
