@@ -1,4 +1,4 @@
-name: Android Build
+name: Android Release Build
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     branches: [ main ]
 
 jobs:
-  android:
+  android-release:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
           cache: 'npm'
 
       - name: Install deps
@@ -31,15 +31,17 @@ jobs:
       - name: Make gradlew executable
         run: cd android && chmod +x ./gradlew
 
-      - name: Build debug APK
-        run: cd android && ./gradlew assembleDebug
+      # APK RELEASE (contém o index.android.bundle embutido)
+      - name: Build release APK
+        run: cd android && ./gradlew assembleRelease
 
-      - name: Upload debug APK
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug.apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: app-release.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
 
+      # AAB RELEASE (para Play Console)
       - name: Build release AAB
         run: cd android && ./gradlew bundleRelease
 
