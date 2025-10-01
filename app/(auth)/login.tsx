@@ -74,7 +74,7 @@ export default function Login() {
       }}
     >
       <Image
-        source={require("../../assets/splash.png")}
+        source={require("../../assets/logo.png")}
         style={{
           width: 120,
           height: 120,
