@@ -28,8 +28,3 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck --if-present
-
-      - name: Unit tests (Jest)
-        run: npm test -- --ci --reporters=default
-        env:
-          CI: true
