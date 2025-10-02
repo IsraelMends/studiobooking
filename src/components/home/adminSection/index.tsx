@@ -9,6 +9,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
   onNavigateToReports,
   onNavigateToDay,
   onNavigateToRegister,
+  onNavigateToDelete,
 }) => {
   const adminCards = [
     {
@@ -42,6 +43,14 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
       onPress: onNavigateToRegister,
       accessibilityLabel: 'Criar novo usuário',
       accessibilityHint: 'Abre a tela de criação de novo usuário',
+    },
+    {
+      icon: 'person',
+      title: 'Deletar usuário',
+      subtitle: 'Remova um usuário do sistema',
+      onPress: onNavigateToDelete,
+      accessibilityLabel: 'Deletar usuário',
+      accessibilityHint: 'Abre a tela de deleção de usuário',
     },
   ];
 

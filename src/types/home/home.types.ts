@@ -11,6 +11,7 @@ export interface AdminSectionProps {
   onNavigateToReports: () => void;
   onNavigateToDay: () => void;
   onNavigateToRegister: () => void;
+  onNavigateToDelete: () => void;
 }
 
 export interface HomeHeaderProps {

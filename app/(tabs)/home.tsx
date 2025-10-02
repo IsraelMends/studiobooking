@@ -23,6 +23,7 @@ export default function Home() {
   const handleNavigateToReports = () => router.push("/admin/reports");
   const handleNavigateToDay = () => router.push("/(admin)/day");
   const handleNavigateToRegister = () => router.push("/(admin)/register");
+  const handleNavigateToDelete = () => router.push("/(admin)/delete");
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -46,6 +47,7 @@ export default function Home() {
           onNavigateToReports={handleNavigateToReports}
           onNavigateToDay={handleNavigateToDay}
           onNavigateToRegister={handleNavigateToRegister}
+          onNavigateToDelete={handleNavigateToDelete}
         />
       )}
     </SafeAreaView>
