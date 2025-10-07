@@ -8,6 +8,12 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
+# --- Expo autolinking (necessário quando há "expo" no package.json) ---
+# Carrega o script de autolinking do Expo
+require_relative '../node_modules/expo-modules-autolinking/scripts/autolinking'
+# (opcional) você pode excluir módulos passando exclude: [...]
+# use_expo_modules!(exclude: [])
+
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
@@ -15,20 +21,27 @@ if linkage != nil
 end
 
 target 'studiobooking' do
+  # Descobre módulos nativos via CLI do RN
   config = use_native_modules!
+
+  # **Chame o autolinking do Expo dentro do target**
+  use_expo_modules!
 
   use_react_native!(
     :path => config[:reactNativePath],
-    # An absolute path to your application root.
+    # Habilite/ajuste se quiser (padrões do RN 0.7x)
+    # :hermes_enabled => true,
+    # :fabric_enabled => true,
+    # Caminho absoluto para a raiz do app
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
   post_install do |installer|
-    # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
+    # Mantém suas opções existentes
     react_native_post_install(
       installer,
       config[:reactNativePath],
-      :mac_catalyst_enabled => false,
+      :mac_catalyst_enabled => false
       # :ccache_enabled => true
     )
   end
