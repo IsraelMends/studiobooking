@@ -70,6 +70,15 @@ jobs:
           key: ${{ runner.os }}-pods-${{ hashFiles(format('{0}/Podfile.lock', env.IOS_DIR)) }}
           restore-keys: |
             ${{ runner.os }}-pods-
+      
+      - name: Verify Expo autolinking presence
+        run: |
+          echo "Listing node_modules entries related to expo:"
+          ls -la node_modules | grep expo || true
+          if [ ! -f "node_modules/expo-modules-autolinking/scripts/autolinking.rb" ] && [ ! -f "node_modules/expo-modules-autolinking/scripts/autolinking" ]; then
+            echo "::warning ::expo-modules-autolinking not found; Podfile will skip Expo autolinking."
+          fi
+
 
       - name: Install CocoaPods
         run: pod install --repo-update

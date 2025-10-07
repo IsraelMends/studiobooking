@@ -18,7 +18,7 @@
     "@react-navigation/native": "^7.1.17",
     "@supabase/supabase-js": "^2.45.4",
     "date-fns": "^3.6.0",
-    "expo": "^54.0.8",
+    "expo": "^54.0.12",
     "expo-constants": "~16.0.2",
     "expo-file-system": "~19.0.14",
     "expo-linear-gradient": "^15.0.7",

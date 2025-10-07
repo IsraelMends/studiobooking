@@ -8,41 +8,44 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-# --- Expo autolinking (necessário quando há "expo" no package.json) ---
-# Carrega o script de autolinking do Expo
-require_relative '../node_modules/expo-modules-autolinking/scripts/autolinking'
-# (opcional) você pode excluir módulos passando exclude: [...]
-# use_expo_modules!(exclude: [])
+# --- Expo autolinking (opcional, só se o pacote existir) ---
+expo_autolinking_path = File.expand_path("../node_modules/expo-modules-autolinking/scripts/autolinking", __dir__)
+expo_available = false
+begin
+  if File.exist?(expo_autolinking_path) || File.exist?(expo_autolinking_path + ".rb")
+    require_relative '../node_modules/expo-modules-autolinking/scripts/autolinking'
+    expo_available = true
+  else
+    Pod::UI.warn "expo-modules-autolinking not found; skipping Expo autolinking"
+  end
+rescue LoadError => e
+  Pod::UI.warn "Failed to require Expo autolinking: #{e.message}"
+end
 
 linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
+if linkage
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
 end
 
 target 'studiobooking' do
-  # Descobre módulos nativos via CLI do RN
   config = use_native_modules!
 
-  # **Chame o autolinking do Expo dentro do target**
-  use_expo_modules!
+  # Só chama Expo se disponível
+  use_expo_modules! if expo_available
 
   use_react_native!(
     :path => config[:reactNativePath],
-    # Habilite/ajuste se quiser (padrões do RN 0.7x)
     # :hermes_enabled => true,
     # :fabric_enabled => true,
-    # Caminho absoluto para a raiz do app
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
   post_install do |installer|
-    # Mantém suas opções existentes
     react_native_post_install(
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false
-      # :ccache_enabled => true
     )
   end
 end
