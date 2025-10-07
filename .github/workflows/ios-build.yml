@@ -86,7 +86,7 @@ jobs:
 
       # --- Build opcional: habilite quando quiser gerar .ipa ---
       - name: Build .ipa (xcodebuild)
-        if: ${{ false }}  # troque para true quando estiver pronto para buildar
+        if: ${{ true }}  # troque para true quando estiver pronto para buildar
         working-directory: ${{ env.IOS_DIR }}
         run: |
           set -euo pipefail
@@ -103,7 +103,7 @@ jobs:
                      -exportPath "$PWD/build"
 
       - name: Upload IPA
-        if: ${{ false }}  # habilite junto com o step de build
+        if: ${{ true }}  # habilite junto com o step de build
         uses: actions/upload-artifact@v4
         with:
           name: app-release.ipa
