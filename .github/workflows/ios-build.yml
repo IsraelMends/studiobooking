@@ -86,21 +86,58 @@ jobs:
 
       # --- Build opcional: habilite quando quiser gerar .ipa ---
       - name: Build .ipa (xcodebuild)
-        if: ${{ true }}  # troque para true quando estiver pronto para buildar
+        if: ${{ true }}  # mude para true quando quiser gerar o .ipa
         working-directory: ${{ env.IOS_DIR }}
+        env:
+          SCHEME: ${{ env.SCHEME }}
         run: |
           set -euo pipefail
-          WORKSPACE="$(ls *.xcworkspace | head -n1)"
-          xcodebuild -workspace "$WORKSPACE" \
-                     -scheme "${SCHEME}" \
-                     -configuration Release \
-                     -sdk iphoneos \
-                     -archivePath "$PWD/build/${SCHEME}.xcarchive" archive \
-                     CODE_SIGNING_ALLOWED=NO
-          xcodebuild -exportArchive \
-                     -archivePath "$PWD/build/${SCHEME}.xcarchive" \
-                     -exportOptionsPlist exportOptions.plist \
-                     -exportPath "$PWD/build"
+
+          # 1) Descobrir workspace ou projeto de forma robusta
+          WORKSPACE="$(/usr/bin/find . -maxdepth 1 -type d -name '*.xcworkspace' -print -quit || true)"
+          PROJECT="$(/usr/bin/find . -maxdepth 1 -type d -name '*.xcodeproj' -print -quit || true)"
+
+          if [ -n "$WORKSPACE" ]; then
+            echo "➡️ Usando workspace: $WORKSPACE"
+            BUILD_FLAG="-workspace \"$WORKSPACE\""
+          elif [ -n "$PROJECT" ]; then
+            echo "➡️ Workspace não encontrado. Usando projeto: $PROJECT"
+            BUILD_FLAG="-project \"$PROJECT\""
+          else
+            echo "::error ::Nenhum .xcworkspace ou .xcodeproj encontrado em $(pwd)."
+            echo "Dica: garanta que 'pod install' foi executado e que o Podfile é válido."
+            exit 1
+          fi
+
+          # 2) Validar o Scheme
+          if [ -z "${SCHEME:-}" ]; then
+            echo "::error ::Variável SCHEME não definida. Configure env.SCHEME no job."
+            exit 1
+          fi
+          echo "➡️ Usando scheme: ${SCHEME}"
+
+          # 3) Caminho de saída
+          OUT_DIR="$PWD/build"
+          mkdir -p "$OUT_DIR"
+
+          # 4) Archive
+          eval xcodebuild $BUILD_FLAG \
+               -scheme "${SCHEME}" \
+               -configuration Release \
+               -sdk iphoneos \
+               -archivePath "$OUT_DIR/${SCHEME}.xcarchive" archive \
+               CODE_SIGNING_ALLOWED=NO | xcpretty
+
+          # 5) Export (requer exportOptions.plist se for assinar/exportar IPA)
+          if [ -f "exportOptions.plist" ]; then
+            xcodebuild -exportArchive \
+                       -archivePath "$OUT_DIR/${SCHEME}.xcarchive" \
+                       -exportOptionsPlist "exportOptions.plist" \
+                       -exportPath "$OUT_DIR" | xcpretty
+          else
+            echo "::warning ::exportOptions.plist não encontrado. Pulando export do .ipa."
+          fi
+
 
       - name: Upload IPA
         if: ${{ true }}  # habilite junto com o step de build
