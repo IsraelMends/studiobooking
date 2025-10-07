@@ -86,7 +86,7 @@ jobs:
 
       # --- Build opcional: habilite quando quiser gerar .ipa ---
       - name: Build .ipa (xcodebuild)
-        if: ${{ true }}  # mude para false se quiser desabilitar temporariamente
+        if: ${{ true }}  # deixe true se quiser realmente buildar agora
         working-directory: ${{ env.IOS_DIR }}
         env:
           SCHEME: ${{ env.SCHEME }}
@@ -94,12 +94,20 @@ jobs:
           set -euo pipefail
           set -x
 
-          echo "📁 Listando itens em $(pwd):"
+          echo "📁 Conteúdo de $(pwd):"
           ls -la
 
-          # 1) Descobrir workspace ou projeto de forma robusta
-          WORKSPACE="$(/usr/bin/find . -maxdepth 1 -type d -name '*.xcworkspace' -print -quit || true)"
-          PROJECT="$(/usr/bin/find . -maxdepth 1 -type d -name '*.xcodeproj' -print -quit || true)"
+          echo "🔎 Procurando *.xcworkspace e *.xcodeproj na raiz de ios/"
+          /usr/bin/find . -maxdepth 1 -name "*.xcworkspace" -print
+          /usr/bin/find . -maxdepth 1 -name "*.xcodeproj" -print
+
+          # 1) Descobrir workspace OU projeto (sem cair em contents.xcworkspacedata)
+          WORKSPACE="$(
+            /usr/bin/find . -maxdepth 1 -type d -name '*.xcworkspace' -print -quit || true
+          )"
+          PROJECT="$(
+            /usr/bin/find . -maxdepth 1 -type d -name '*.xcodeproj' -print -quit || true
+          )"
 
           if [ -n "$WORKSPACE" ]; then
             echo "➡️ Usando workspace: $WORKSPACE"
@@ -120,7 +128,7 @@ jobs:
           fi
           echo "➡️ Usando scheme: ${SCHEME}"
 
-          # 3) Caminho de saída
+          # 3) Saída
           OUT_DIR="$PWD/build"
           mkdir -p "$OUT_DIR"
 
@@ -133,7 +141,7 @@ jobs:
             -archivePath "$OUT_DIR/${SCHEME}.xcarchive" archive \
             CODE_SIGNING_ALLOWED=NO
 
-          # 5) Export (só exporta IPA se existir exportOptions.plist)
+          # 5) Export IPA (se houver exportOptions.plist)
           if [ -f "exportOptions.plist" ]; then
             /Applications/Xcode_16.2.app/Contents/Developer/usr/bin/xcodebuild \
               -exportArchive \
@@ -143,6 +151,7 @@ jobs:
           else
             echo "::warning ::exportOptions.plist não encontrado. Pulando export do .ipa."
           fi
+
 
 
       - name: Upload IPA
