@@ -11,6 +11,7 @@ jobs:
     timeout-minutes: 60
     env:
       IOS_DIR: ios # altere se a pasta estiver em outro local (ex: app/ios)
+      SCHEME: studiobooking # defina o esquema do seu aplicativo
 
     steps:
       - name: Checkout
