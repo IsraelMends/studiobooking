@@ -3,38 +3,79 @@ name: iOS Build
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   ios:
     runs-on: macos-14
     timeout-minutes: 60
+    env:
+      IOS_DIR: ios # altere se a pasta estiver em outro local (ex: app/ios)
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate iOS folder
+        run: |
+          if [ ! -d "${{ env.IOS_DIR }}" ]; then
+            echo "::error::Directory '${{ env.IOS_DIR }}' not found at repo root. Set IOS_DIR env or ensure the path is correct."
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
 
-      - name: Install deps
+      - name: Install JS deps (Yarn)
+        if: ${{ hashFiles('yarn.lock') != '' }}
+        run: yarn install --frozen-lockfile
+
+      - name: Install JS deps (npm)
+        if: ${{ hashFiles('package-lock.json') != '' }}
         run: npm ci
 
-      - name: Install pods
-        run: |
-          cd ios
-          pod install --repo-update
-        shell: bash
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
 
-      - name: Build .ipa
-        run: |
-          xcodebuild -workspace ios/*.xcworkspace             -scheme studiobooking             -configuration Release             -sdk iphoneos             -archivePath $PWD/build/studiobooking.xcarchive archive             CODE_SIGNING_ALLOWED=NO
-          xcodebuild -exportArchive             -archivePath $PWD/build/studiobooking.xcarchive             -exportOptionsPlist ios/exportOptions.plist             -exportPath $PWD/build
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.IOS_DIR }}/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles(format('{0}/Podfile.lock', env.IOS_DIR)) }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
 
-      - name: Upload IPA
+      - name: Install CocoaPods
+        run: pod install --repo-update
+        working-directory: ${{ env.IOS_DIR }}
+
+      # --- Optional: build using xcodebuild (disabled by default) ---
+      - name: Build .ipa (xcodebuild)
+        if: ${{ false }} # altere para true depois de configurar SCHEME/exportOptions.plist
+        working-directory: ${{ env.IOS_DIR }}
+        run: |
+          set -euo pipefail
+          WORKSPACE="$(ls *.xcworkspace | head -n1)"
+          SCHEME="${SCHEME:-YourApp}"  # defina SCHEME em env ou variável de repositório
+          xcodebuild -workspace "$WORKSPACE" \
+                     -scheme "$SCHEME" \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     -archivePath "$PWD/build/${SCHEME}.xcarchive" archive \
+                     CODE_SIGNING_ALLOWED=NO
+          xcodebuild -exportArchive \
+                     -archivePath "$PWD/build/${SCHEME}.xcarchive" \
+                     -exportOptionsPlist exportOptions.plist \
+                     -exportPath "$PWD/build"
+
+      - name: Upload IPA (artifact)
+        if: ${{ false }} # habilite junto com o build
         uses: actions/upload-artifact@v4
         with:
           name: app-release.ipa
-          path: build/*.ipa
+          path: ${{ env.IOS_DIR }}/build/*.ipa
