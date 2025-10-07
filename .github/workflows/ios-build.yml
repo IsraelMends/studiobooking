@@ -86,12 +86,16 @@ jobs:
 
       # --- Build opcional: habilite quando quiser gerar .ipa ---
       - name: Build .ipa (xcodebuild)
-        if: ${{ true }}  # mude para true quando quiser gerar o .ipa
+        if: ${{ true }}  # mude para false se quiser desabilitar temporariamente
         working-directory: ${{ env.IOS_DIR }}
         env:
           SCHEME: ${{ env.SCHEME }}
         run: |
           set -euo pipefail
+          set -x
+
+          echo "📁 Listando itens em $(pwd):"
+          ls -la
 
           # 1) Descobrir workspace ou projeto de forma robusta
           WORKSPACE="$(/usr/bin/find . -maxdepth 1 -type d -name '*.xcworkspace' -print -quit || true)"
@@ -99,13 +103,13 @@ jobs:
 
           if [ -n "$WORKSPACE" ]; then
             echo "➡️ Usando workspace: $WORKSPACE"
-            BUILD_FLAG="-workspace \"$WORKSPACE\""
+            BUILD_FLAG=(-workspace "$WORKSPACE")
           elif [ -n "$PROJECT" ]; then
             echo "➡️ Workspace não encontrado. Usando projeto: $PROJECT"
-            BUILD_FLAG="-project \"$PROJECT\""
+            BUILD_FLAG=(-project "$PROJECT")
           else
             echo "::error ::Nenhum .xcworkspace ou .xcodeproj encontrado em $(pwd)."
-            echo "Dica: garanta que 'pod install' foi executado e que o Podfile é válido."
+            echo "Dica: confirme que o 'pod install' rodou e gerou o workspace, ou que o .xcodeproj existe."
             exit 1
           fi
 
@@ -121,19 +125,21 @@ jobs:
           mkdir -p "$OUT_DIR"
 
           # 4) Archive
-          eval xcodebuild $BUILD_FLAG \
-               -scheme "${SCHEME}" \
-               -configuration Release \
-               -sdk iphoneos \
-               -archivePath "$OUT_DIR/${SCHEME}.xcarchive" archive \
-               CODE_SIGNING_ALLOWED=NO | xcpretty
+          /Applications/Xcode_16.2.app/Contents/Developer/usr/bin/xcodebuild \
+            "${BUILD_FLAG[@]}" \
+            -scheme "${SCHEME}" \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$OUT_DIR/${SCHEME}.xcarchive" archive \
+            CODE_SIGNING_ALLOWED=NO
 
-          # 5) Export (requer exportOptions.plist se for assinar/exportar IPA)
+          # 5) Export (só exporta IPA se existir exportOptions.plist)
           if [ -f "exportOptions.plist" ]; then
-            xcodebuild -exportArchive \
-                       -archivePath "$OUT_DIR/${SCHEME}.xcarchive" \
-                       -exportOptionsPlist "exportOptions.plist" \
-                       -exportPath "$OUT_DIR" | xcpretty
+            /Applications/Xcode_16.2.app/Contents/Developer/usr/bin/xcodebuild \
+              -exportArchive \
+              -archivePath "$OUT_DIR/${SCHEME}.xcarchive" \
+              -exportOptionsPlist "exportOptions.plist" \
+              -exportPath "$OUT_DIR"
           else
             echo "::warning ::exportOptions.plist não encontrado. Pulando export do .ipa."
           fi
