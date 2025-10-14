@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { supabaseTemp } from '~/utils/register/supabaseTemp';
+import { supabase } from '~/lib/supabase';
 import { RegisterForm } from '~/utils/register/validation';
 
 export const useRegisterSubmit = () => {
@@ -20,47 +20,39 @@ export const useRegisterSubmit = () => {
   };
 
   const submitRegistration = async (vals: RegisterForm) => {
-    setSubmitting(true);
-    try {
-      const { data: signUpRes, error: signUpErr } =
-        await supabaseTemp.auth.signUp({
-          email: vals.email,
-          password: vals.password,
-          options: {
-            data: {
-              full_name: vals.full_name,
-              organization_id: vals.organization_id,
-            },
-          },
-        });
+  setSubmitting(true);
+  try {
+    const { data, error } = await supabase.functions.invoke("admin-create-user", {
+      body: {
+        email: vals.email,
+        password: vals.password,
+        full_name: vals.full_name,
+        organization_id: vals.organization_id,
+      },
+    });
 
-      if (signUpErr) {
-        throw signUpErr;
+    if (error) {
+      // Lê o corpo text/plain retornado pela Function (status 400)
+      let serverMsg = "Erro desconhecido";
+      const ctx: any = error.context;
+      if (ctx?.text) {
+        serverMsg = await ctx.text();               // web / RN recente
+      } else if (ctx?._bodyBlob?.text) {
+        serverMsg = await ctx._bodyBlob.text();     // fallback em RN
       }
-
-      const createdUser = signUpRes?.user ?? null;
-      if (!createdUser) {
-        Alert.alert(
-          "Sucesso",
-          "Conta criada! O usuário deve confirmar o e-mail para ativar o acesso."
-        );
-      } else {
-        Alert.alert("Sucesso", "Conta criada com sucesso.");
-      }
-    } catch (err: any) {
-      console.log(
-        "[register] erro:",
-        JSON.stringify(err, Object.getOwnPropertyNames(err))
-      );
-      const msg =
-        err?.message ||
-        err?.error_description ||
-        "Não foi possível criar a conta. Tente novamente.";
-      Alert.alert("Erro ao registrar", msg);
-    } finally {
-      setSubmitting(false);
+      console.log("[invoke] status:", ctx?.status, "body:", serverMsg);
+      throw new Error(serverMsg);
     }
-  };
+
+    console.log("created user:", data);
+    Alert.alert("Sucesso", "Conta criada com sucesso.");
+  } catch (err: any) {
+    Alert.alert("Erro ao registrar", err?.message ?? "Falha na função.");
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   return { submitRegistration, submitting };
 };
