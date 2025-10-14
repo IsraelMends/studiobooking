@@ -1,16 +1,15 @@
 import { StyleSheet } from "react-native";
 
-// Paleta escura personalizada
 const COLORS = {
-  bg: "#000000",        // preto
-  card: "#1f1f1f",      // cinza quase preto
-  border: "#2e2e2e",    // cinza médio
-  text: "#f5f5f5",      // quase branco
-  subtext: "#cbd5e1",   // cinza claro
-  muted: "#9ca3af",     // cinza médio claro
-  primary: "#4c1d95",   // roxo escuro
-  primaryDark: "#3b0764", // roxo ainda mais escuro
-  danger: "#ef4444",    // vermelho para erros
+  bg: "#000000",
+  card: "#1f1f1f",
+  border: "#2e2e2e",
+  text: "#f5f5f5",
+  subtext: "#cbd5e1",
+  muted: "#9ca3af",
+  primary: "#4c1d95",
+  primaryDark: "#3b0764",
+  danger: "#ef4444",
 };
 
 export const styles = StyleSheet.create({
