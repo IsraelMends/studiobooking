@@ -1,3 +1,4 @@
+import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 export function Card({ title, subtitle, value, ctaLabel, onPress }: any){
   return (
