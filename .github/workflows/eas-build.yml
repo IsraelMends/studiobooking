@@ -42,7 +42,7 @@ jobs:
 
       # 8️⃣ (opcional) Faz upload dos artefatos gerados
       - name: Upload build logs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: eas-build-logs
           path: |
