@@ -8,9 +8,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash_mobile.svg",
+      "image": "./assets/splash_mobile.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0b0f13"
+      "backgroundColor": "#000000"
     },
     "assetBundlePatterns": [
       "**/*"
