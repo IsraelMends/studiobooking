@@ -3,44 +3,43 @@ name: 📦 EAS Auto Build on Commit
 on:
   push:
     branches:
-      - main    # ou altere para sua branch principal (ex: master, develop)
+      - main
 
 jobs:
   eas-build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Clona o repositório
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2️⃣ Define a versão do Node
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # 3️⃣ Instala as dependências do projeto
       - name: Install dependencies
         run: npm ci
 
-      # 4️⃣ Instala o EAS CLI
       - name: Install EAS CLI
         run: npm install -g eas-cli@latest
 
-      # 5️⃣ Faz login no Expo via token seguro
-      - name: Log in to Expo using token
-        run: npx eas login --token ${{ secrets.EXPO_TOKEN }}
+      # ✅ Autenticação correta via token
+      - name: Authenticate with Expo
+        run: npx eas whoami || true
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # 6️⃣ Roda o build Android automaticamente
       - name: Build Android (Production)
         run: npx eas build --platform android --non-interactive --profile production
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # 7️⃣ Roda o build iOS automaticamente
       - name: Build iOS (Production)
         run: npx eas build --platform ios --non-interactive --profile production
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # 8️⃣ (opcional) Faz upload dos artefatos gerados
       - name: Upload build logs
         uses: actions/upload-artifact@v4
         with:
