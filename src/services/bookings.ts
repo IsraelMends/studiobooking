@@ -1,6 +1,8 @@
 // ~/services/bookings.ts
 import { supabase } from "~/lib/supabase";
 
+import * as Notifications from "expo-notifications";
+
 type DayBooking = {
   id: string;
   organization_id: string;
@@ -51,42 +53,56 @@ export async function getOrgReservedSeconds(orgId: string, dateISO: string) {
   return total; // em segundos
 }
 
-// Cria reserva (60min + 10min buffer, ajuste se quiser)
 export async function createBooking(
+  orgId: string,
   userId: string,
-  orgId: string,               // <- novo parâmetro
-  dateYYYYMMDD: string,
-  startHHMM: string,
-  devices: string[],
-  roomId = 'default'
+  date: string,
+  startHH: string,
+  startMM: string,
+  endHH: string,
+  endMM: string,
+  roomId: string,
+  devices: string[]
 ) {
-  // calcula fim +60min (ajuste se sua duração for outra)
-  const [h, m] = startHHMM.split(':').map(Number);
-  const end = new Date(2000, 0, 1, h, m);
-  end.setMinutes(end.getMinutes() + 60);
-  const endHH = String(end.getHours()).padStart(2, '0');
-  const endMM = String(end.getMinutes()).padStart(2, '0');
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // opcional
 
   const payload = {
+    organization_id: orgId,
     user_id: userId,
-    organization_id: orgId,     // <- ESSENCIAL
-    date: dateYYYYMMDD,
-    start_time: `${startHHMM}:00`,
+    date,
+    start_time: `${startHH}:${startMM}:00`,
     end_time: `${endHH}:${endMM}:00`,
-    status: 'active',
+    status: "active",
+    confirmed: false,
+    expires_at: expiresAt,
     room_id: roomId,
-    devices: devices.join(', '), // (ou use JSONB, se preferir)
+    devices: devices.join(", "),
   };
 
   const { data, error } = await supabase
-    .from('bookings')
+    .from("bookings")
     .insert(payload)
     .select()
     .single();
 
   if (error) throw error;
+
+  // 🚨 Agendar notificação 30 minutos antes
+  const startDate = new Date(`${date}T${startHH}:${startMM}:00`);
+  const notifyAt = new Date(startDate.getTime() - 30 * 60 * 1000); // 30 min antes
+
+await Notifications.scheduleNotificationAsync({
+  content: {
+    title: "Confirme sua reserva 🎵",
+    body: `Sua sessão no estúdio começa em 30 minutos.`,
+    data: { bookingId: data.id },
+  },
+  trigger: { date: notifyAt } as any, 
+});
+
   return data;
 }
+
 
 export async function cancelBooking(
   bookingId: string,
@@ -108,3 +124,31 @@ export async function cancelBooking(
     .eq("id", bookingId);
   if (error) throw error;
 }
+
+// Limpa reservas que passaram do tempo de confirmação
+export async function cleanupExpiredBookings() {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("id, start_time, confirmed")
+    .eq("status", "active")
+    .eq("confirmed", false)
+    .lt("start_time", now); // passou do horário
+
+  if (error) {
+    console.error("Erro ao buscar reservas expiradas:", error);
+    return;
+  }
+
+  for (const booking of data ?? []) {
+    await supabase
+      .from("bookings")
+      .update({ status: "canceled" })
+      .eq("id", booking.id);
+
+    console.log(`Reserva ${booking.id} cancelada automaticamente.`);
+  }
+}
+
+
