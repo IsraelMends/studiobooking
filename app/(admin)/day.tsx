@@ -1,5 +1,6 @@
 // app/(admin)/day.tsx
 import { useEffect, useMemo, useState, useCallback } from "react";
+import React from "react";
 import {
   View,
   Text,
