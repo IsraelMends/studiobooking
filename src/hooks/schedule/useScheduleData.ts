@@ -67,6 +67,14 @@ export const useScheduleData = () => {
           blocks as any
         ) as string[];
 
+        const occupied = mapped.filter((m: any) =>
+  ['active', 'confirmed'].includes(m.status)
+);
+
+av = av.filter(slot =>
+  !occupied.some(o => slot >= o.startTime && slot < o.endTime)
+);
+
         if (isToday(date)) {
           const nowM = hhmmToMin(nowHHMM());
           av = av.filter((t) => hhmmToMin(t) >= nowM);
