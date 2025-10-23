@@ -46,11 +46,19 @@ export const useBookingActions = (
         return;
       }
 
+      const [startHH, startMM] = selectedTime.split(':');
+      const endTime = calculateEndTime(selectedTime); 
+      const [endHH, endMM] = endTime.split(':');
+
       await createBooking(
-        profile.id,
         profile.organization_id,
+        profile.id,
         date,
-        selectedTime,
+        startHH,
+        startMM,
+        endHH,
+        endMM,
+        '',
         selectedDevices
       );
 
