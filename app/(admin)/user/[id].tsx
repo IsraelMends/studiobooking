@@ -1,6 +1,7 @@
 // app/(admin)/user/[id].tsx
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -8,7 +9,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
-  RefreshControl,
+  RefreshControl
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons as Icon } from "@expo/vector-icons";
