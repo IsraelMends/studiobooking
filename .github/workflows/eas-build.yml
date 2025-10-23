@@ -35,10 +35,6 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build iOS (Production)
-        run: npx eas build --platform ios --non-interactive --profile production
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Upload build logs
         uses: actions/upload-artifact@v4
