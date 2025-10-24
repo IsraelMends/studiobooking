@@ -1,4 +1,5 @@
 export interface BookingItem {
+  confirmed: any;
   id: string;
   date: string; // 'YYYY-MM-DD'
   start_time: string; // 'HH:mm' ou 'HH:mm:ss'
