@@ -87,20 +87,30 @@ export async function createBooking(
 
   if (error) throw error;
 
-  // 🚨 Agendar notificação 30 minutos antes
-  const startDate = new Date(`${date}T${startHH}:${startMM}:00`);
-  const notifyAt = new Date(startDate.getTime() - 30 * 60 * 1000); // 30 min antes
+// 🚨 Agendar notificação 30 minutos antes
+const startDate = new Date(`${date}T${startHH}:${startMM}:00`);
+const notifyAt = new Date(startDate.getTime() - 30 * 60 * 1000); // 30 min antes
 
 await Notifications.scheduleNotificationAsync({
   content: {
-    title: "Confirme sua reserva 🎵",
-    body: `Sua sessão no estúdio começa em 30 minutos.`,
-    data: { bookingId: data.id },
+    title: "Confirme sua reserva",
+    body: `Sua sessão começa às ${payload.start_time.slice(0,5)}. Confirme ou cancele.`,
+    data: { bookingId: data.id, startDateISO: date, startTime: payload.start_time },
+    categoryIdentifier: "BOOKING_CONFIRM", // iOS: ações
   },
-  trigger: { date: notifyAt } as any, 
+  trigger: { date: notifyAt } as any,
 });
 
   return data;
+}
+
+export async function confirmBooking(bookingId: string) {
+  const { error } = await supabase
+    .from("bookings")
+    .update({ confirmed: true, status: "confirmed", confirmed_at: new Date().toISOString() })
+    .eq("id", bookingId)
+    .neq("status", "canceled"); // não confirma canceladas
+  if (error) throw error;
 }
 
 
@@ -125,16 +135,15 @@ export async function cancelBooking(
   if (error) throw error;
 }
 
-// Limpa reservas que passaram do tempo de confirmação
-export async function cleanupExpiredBookings() {
-  const now = new Date().toISOString();
+// Limpa reservas que passaram do horário de início + tolerância e seguem não confirmadas
+export async function cleanupExpiredBookings(graceMinutes = 15) {
+  const now = new Date();
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, start_time, confirmed")
-    .eq("status", "active")
-    .eq("confirmed", false)
-    .lt("start_time", now); // passou do horário
+    .select("id, date, start_time, confirmed, status")
+    .in("status", ["active"]) // apenas pendentes
+    .eq("confirmed", false);
 
   if (error) {
     console.error("Erro ao buscar reservas expiradas:", error);
@@ -142,13 +151,42 @@ export async function cleanupExpiredBookings() {
   }
 
   for (const booking of data ?? []) {
-    await supabase
-      .from("bookings")
-      .update({ status: "canceled" })
-      .eq("id", booking.id);
+    const start = new Date(`${booking.date}T${booking.start_time}`); // usa date+time
+    const cutoff = new Date(start.getTime() + graceMinutes * 60 * 1000);
 
-    console.log(`Reserva ${booking.id} cancelada automaticamente.`);
+    // Só cancela se já passou do início + tolerância e segue sem confirmar
+    if (now >= cutoff) {
+      await supabase
+        .from("bookings")
+        .update({ status: "canceled" })
+        .eq("id", booking.id);
+      console.log(`Reserva ${booking.id} cancelada por falta de confirmação após ${graceMinutes} min.`);
+    }
   }
 }
 
+// Marca como concluídas reservas cujo fim já passou
+export async function completePastBookings() {
+  const now = new Date();
 
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("id, date, end_time, status")
+    .in("status", ["active", "confirmed"]); // o que ainda está “em curso”
+
+  if (error) {
+    console.error("Erro ao buscar reservas para completar:", error);
+    return;
+  }
+
+  for (const booking of data ?? []) {
+    const end = new Date(`${booking.date}T${booking.end_time}`);
+    if (end <= now) {
+      await supabase
+        .from("bookings")
+        .update({ status: "completed" })
+        .eq("id", booking.id);
+      console.log(`Reserva ${booking.id} marcada como completed.`);
+    }
+  }
+}
