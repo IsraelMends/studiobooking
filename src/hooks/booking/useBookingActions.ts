@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { useBookings } from '~/store/booking';
+import { confirmBooking } from "~/services/bookings";
 
 export const useBookingActions = () => {
   const { cancel } = useBookings();
@@ -41,10 +42,20 @@ export const useBookingActions = () => {
     );
   };
 
+  const handleConfirm = async (bookingId: string) => {
+    try {
+      await confirmBooking(bookingId);
+      Alert.alert("Reserva confirmada com sucesso!");
+    } catch (e: any) {
+      Alert.alert("Erro", e.message || "Falha ao confirmar a reserva.");
+    }
+  };
+
   const isItemBusy = (itemId: string) => busyItems.has(itemId);
 
   return {
     handleCancel,
+    handleConfirm,
     isItemBusy,
   };
 };
