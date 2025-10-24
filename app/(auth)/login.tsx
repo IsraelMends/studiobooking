@@ -65,7 +65,7 @@ export default function Login() {
   };
 
   return (
-    <SafeAreaView>
+    <SafeAreaView style={{ flex: 1 }}>
       <View
         style={{
           flex: 1,

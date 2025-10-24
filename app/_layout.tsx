@@ -3,7 +3,6 @@ import { Stack } from "expo-router";
 import { useEffect } from "react";
 import { useAuth } from "~/store/auth";
 import { cleanupExpiredBookings } from "../src/services/bookings";
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from "expo-notifications";
 
 export default function RootLayout() {
@@ -21,7 +20,6 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)/login" />
         <Stack.Screen name="(tabs)" />
@@ -32,6 +30,5 @@ export default function RootLayout() {
         <Stack.Screen name="admin/settings" />
         <Stack.Screen name="admin/reports" />
       </Stack>
-    </SafeAreaProvider>
   );
 }
