@@ -40,13 +40,3 @@ jobs:
         with:
           name: app-release.apk
           path: android/app/build/outputs/apk/release/app-release.apk
-
-      # AAB RELEASE (para Play Console)
-      - name: Build release AAB
-        run: cd android && ./gradlew bundleRelease
-
-      - name: Upload release AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release.aab
-          path: android/app/build/outputs/bundle/release/app-release.aab
