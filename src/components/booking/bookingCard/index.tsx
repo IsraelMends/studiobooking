@@ -17,6 +17,9 @@ export const BookingCard: React.FC<BookingCardProps> = ({ item }) => {
     () => toDate(item.date, item.start_time),
     [item.date, item.start_time]
   );
+  const diffMinutes = (startDt.getTime() - new Date().getTime()) / 60000;
+  const canConfirm = diffMinutes <= 45 && diffMinutes > 0; // só mostra até o início
+
   const whenLabel = useMemo(
     () => format(startDt, "EEE, dd MMM yyyy — HH:mm", { locale: ptBR }),
     [startDt]
@@ -43,53 +46,73 @@ export const BookingCard: React.FC<BookingCardProps> = ({ item }) => {
           <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
         </View>
 
-        {isActive && (
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            {/* ✅ Botão Confirmar (só aparece se ainda não foi confirmada) */}
-            {!item.confirmed && (
-              <Pressable
-                onPress={onConfirm}
-                disabled={busy}
-                style={({ pressed }) => [
-                  styles.confirmButton,
-                  { opacity: pressed || busy ? 0.7 : 1 },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Confirmar esta reserva"
-              >
-                {busy ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <MaterialIcons name="check" size={16} color="#fff" />
-                    <Text style={styles.confirmButtonText}>Confirmar</Text>
-                  </>
-                )}
-              </Pressable>
-            )}
+        {isActive && (() => {
+          const now = new Date();
+          const start = new Date(`${item.date}T${item.start_time}`);
+          const diffMinutes = (start.getTime() - now.getTime()) / 60000;
+          const canCancel = diffMinutes > 30; // só pode cancelar se faltar mais de 30 min
 
-            {/* ❌ Botão Cancelar */}
+          if (!canCancel && diffMinutes <= 30) {
+            Alert.alert("Aviso", "Você só pode cancelar até 30 minutos antes do horário da reserva.");
+          }
+
+
+          return (
             <Pressable
-              onPress={onCancel}
-              disabled={busy}
+              onPress={canCancel ? onCancel : undefined}
+              disabled={busy || !canCancel}
               style={({ pressed }) => [
                 styles.cancelButton,
-                { opacity: pressed || busy ? 0.7 : 1 },
+                {
+                  opacity: pressed || busy ? 0.7 : canCancel ? 1 : 0.5,
+                  backgroundColor: canCancel ? "#ef4444" : "#6b7280" // vermelho ativo, cinza bloqueado
+                }
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Cancelar esta reserva"
+              accessibilityLabel={
+                canCancel
+                  ? busy
+                    ? "Cancelando reserva..."
+                    : "Cancelar esta reserva"
+                  : "Cancelamento indisponível (menos de 30 min antes)"
+              }
             >
               {busy ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <>
-                  <MaterialIcons name="close" size={16} color="#fff" />
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
+                  <MaterialIcons name="close" size={16} color="#ffffff" />
+                  <Text style={styles.cancelButtonText}>
+                    {canCancel ? "Cancelar" : "Indisponível"}
+                  </Text>
                 </>
               )}
             </Pressable>
-          </View>
+          );
+        })()}
+
+        {isActive && canConfirm && !item.confirmed && (
+          <Pressable
+            onPress={() => handleConfirm(item.id)}
+            disabled={busy}
+            style={({ pressed }) => [
+              styles.confirmButton,
+              { opacity: pressed || busy ? 0.7 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Confirmar reserva"
+          >
+            {busy ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <MaterialIcons name="check" size={16} color="#ffffff" />
+                <Text style={styles.cancelButtonText}>Confirmar</Text>
+              </>
+            )}
+          </Pressable>
         )}
+
       </View>
     </View>
   );
