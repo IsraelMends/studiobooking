@@ -119,18 +119,12 @@ export const styles = StyleSheet.create({
     flexGrow: 1,
   },
   confirmButton: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  backgroundColor: "#667eea", // azul-roxo principal
-  paddingHorizontal: 14,
-  paddingVertical: 8,
-  borderRadius: 8,
-},
-confirmButtonText: {
-  color: "#fff",
-  fontWeight: "600",
-  marginLeft: 4,
-},
-
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#10b981', // verde
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  }
 });
