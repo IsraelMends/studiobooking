@@ -35,11 +35,7 @@ export default function Home() {
     <SafeAreaView style={styles.container}>
       <HomeHeader userName={userName} />
       
-      <NextBookingCard
-        myNext={myNext}
-        onViewAgenda={handleViewAgenda}
-        onScheduleNew={handleScheduleNew}
-      />
+      {profile?.id && <NextBookingCard userId={profile.id} />}
 
       {profile?.role === "admin" && (
         <AdminSection
