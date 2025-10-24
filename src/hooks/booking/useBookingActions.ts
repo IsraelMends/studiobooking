@@ -45,7 +45,7 @@ export const useBookingActions = () => {
   const handleConfirm = async (bookingId: string) => {
     try {
       await confirmBooking(bookingId);
-      Alert.alert("Reserva confirmada com sucesso!");
+      Alert.alert("Reserva confirmada", "Sua reserva foi confirmada com sucesso!");
     } catch (e: any) {
       Alert.alert("Erro", e.message || "Falha ao confirmar a reserva.");
     }
