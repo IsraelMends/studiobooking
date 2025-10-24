@@ -4,3 +4,4 @@ dist
 .env
 .DS_Store
 project.sql
+.studiobooking_audit.md
