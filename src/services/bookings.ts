@@ -151,10 +151,9 @@ export async function cleanupExpiredBookings(graceMinutes = 15) {
   }
 
   for (const booking of data ?? []) {
-    const start = new Date(`${booking.date}T${booking.start_time}`); // usa date+time
+    const start = new Date(`${booking.date}T${booking.start_time}`); 
     const cutoff = new Date(start.getTime() + graceMinutes * 60 * 1000);
 
-    // Só cancela se já passou do início + tolerância e segue sem confirmar
     if (now >= cutoff) {
       await supabase
         .from("bookings")
@@ -186,7 +185,6 @@ export async function completePastBookings() {
         .from("bookings")
         .update({ status: "completed" })
         .eq("id", booking.id);
-      console.log(`Reserva ${booking.id} marcada como completed.`);
     }
   }
 }
