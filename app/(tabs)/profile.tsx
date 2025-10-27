@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { SafeAreaView, ScrollView, View, Text, Switch, Alert } from "react-native";
+import {
+  SafeAreaView,
+  ScrollView,
+  View,
+  Text,
+  Switch,
+  Alert,
+} from "react-native";
 import * as Notifications from "expo-notifications";
 
 import { useProfileData } from "~/hooks/profile/useProfileData";
@@ -21,7 +28,7 @@ export default function Profile() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [loadingPref, setLoadingPref] = useState(true);
 
-  // 🔹 Carrega preferência do Supabase
+  // 🔹 Carrega a preferência de notificações do Supabase
   useEffect(() => {
     async function loadPreference() {
       if (!profile?.id) return;
@@ -39,7 +46,7 @@ export default function Profile() {
     loadPreference();
   }, [profile?.id]);
 
-  // 🔹 Atualiza a preferência
+  // 🔹 Ativa ou desativa notificações
   async function handleToggle(value: boolean) {
     if (!profile?.id) {
       Alert.alert("Erro", "Perfil não encontrado.");
@@ -61,9 +68,11 @@ export default function Profile() {
         return;
       }
 
+      // Obter token de push
       const tokenResponse = await Notifications.getExpoPushTokenAsync();
       const expoToken = tokenResponse.data;
 
+      // Salvar no banco
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -77,24 +86,38 @@ export default function Profile() {
         Alert.alert("Erro", "Não foi possível ativar as notificações.");
         setNotificationsEnabled(false);
       } else {
-        Alert.alert("Notificações ativadas", "Você receberá lembretes de reserva 🎵");
+        Alert.alert(
+          "Notificações ativadas",
+          "Você receberá lembretes de reserva 🎵"
+        );
       }
     } else {
       // ❌ Desativar notificações
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          notifications_enabled: false,
-          expo_push_token: null,
-        })
-        .eq("id", profile.id);
+      try {
+        // Cancela todas as notificações locais agendadas
+        await Notifications.cancelAllScheduledNotificationsAsync();
 
-      if (error) {
-        console.error(error);
-        Alert.alert("Erro", "Não foi possível desativar as notificações.");
-        setNotificationsEnabled(true);
-      } else {
-        Alert.alert("Notificações desativadas", "Você não receberá mais lembretes.");
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            notifications_enabled: false,
+            expo_push_token: null,
+          })
+          .eq("id", profile.id);
+
+        if (error) {
+          console.error(error);
+          Alert.alert("Erro", "Não foi possível desativar as notificações.");
+          setNotificationsEnabled(true);
+        } else {
+          Alert.alert(
+            "Notificações desativadas",
+            "Você não receberá mais lembretes."
+          );
+        }
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Erro", "Falha ao desativar notificações locais.");
       }
     }
   }
