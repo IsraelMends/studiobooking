@@ -38,7 +38,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="my-bookings"
         options={{
-          title: 'Minhas',
+          title: 'Minhas Reservas',
           tabBarIcon: ({ color, size, focused }: TabBarIconProps) => (
             <Ionicons name={focused ? 'list' : 'list-outline'} size={size} color={color} />
           ),
