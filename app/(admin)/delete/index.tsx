@@ -135,6 +135,12 @@ export default function DeleteUsersScreen() {
               await deleteUsersOnSupabase(Array.from(selected));
               setUsers((prev) => prev.filter((u) => !selected.has(u.id)));
               setSelected(new Set());
+
+              // Alerta de sucesso após exclusão
+              Alert.alert(
+                "Sucesso",
+                `${count} ${count === 1 ? "usuário foi apagado com sucesso." : "usuários foram apagados com sucesso."}`
+              );
             } catch (err: any) {
               console.error(err);
               Alert.alert("Erro ao excluir", err?.message ?? "Tente novamente.");
