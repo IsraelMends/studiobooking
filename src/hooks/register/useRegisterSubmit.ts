@@ -1,58 +1,48 @@
-import { useState } from 'react';
-import { Alert } from 'react-native';
-import { supabase } from '~/lib/supabase';
-import { RegisterForm } from '~/utils/register/validation';
+import { useState } from "react";
+import { Alert } from "react-native";
+import { useRouter } from "expo-router";
+import { useAuth } from "~/store/auth";
 
-export const useRegisterSubmit = () => {
+export function useRegisterSubmit() {
   const [submitting, setSubmitting] = useState(false);
+  const router = useRouter();
 
-  const withTimeout = async <T,>(
-    p: Promise<T>,
-    ms: number,
-    label: string
-  ): Promise<T> => {
-    return Promise.race([
-      p,
-      new Promise<T>((_, rej) =>
-        setTimeout(() => rej(new Error(`${label} timeout após ${ms}ms`)), ms)
-      ),
-    ]) as Promise<T>;
+  const submitRegistration = async (formData: {
+    name: string;
+    email: string;
+    phone?: string;
+    organization_id?: string;
+    password: string;
+  }) => {
+    try {
+      setSubmitting(true);
+      console.log("📩 Iniciando cadastro:", formData.email);
+
+      // ✅ Chama o método do store (que faz signUp + confirm_email via Edge Function)
+      await useAuth.getState().register({
+  name: formData.name?.trim() || "Usuário",
+  email: formData.email,
+  phone: formData.phone,
+  organization_id: formData.organization_id,
+  password: formData.password,
+});
+
+
+      console.log("✅ Usuário criado e confirmado via Edge Function!");
+      Alert.alert("Sucesso", "Usuário cadastrado e confirmado com sucesso!");
+
+      // Redireciona após cadastro
+      router.push("/(auth)/login");
+    } catch (error: any) {
+      console.error("❌ Erro no cadastro:", error);
+      Alert.alert(
+        "Erro ao cadastrar",
+        error.message ?? "Falha ao criar o usuário"
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const submitRegistration = async (vals: RegisterForm) => {
-  setSubmitting(true);
-  try {
-    const { data, error } = await supabase.functions.invoke("admin-create-user", {
-      body: {
-        email: vals.email,
-        password: vals.password,
-        full_name: vals.full_name,
-        organization_id: vals.organization_id,
-      },
-    });
-
-    if (error) {
-      // Lê o corpo text/plain retornado pela Function (status 400)
-      let serverMsg = "Erro desconhecido";
-      const ctx: any = error.context;
-      if (ctx?.text) {
-        serverMsg = await ctx.text();               // web / RN recente
-      } else if (ctx?._bodyBlob?.text) {
-        serverMsg = await ctx._bodyBlob.text();     // fallback em RN
-      }
-      console.log("[invoke] status:", ctx?.status, "body:", serverMsg);
-      throw new Error(serverMsg);
-    }
-
-    console.log("created user:", data);
-    Alert.alert("Sucesso", "Conta criada com sucesso.");
-  } catch (err: any) {
-    Alert.alert("Erro ao registrar", err?.message ?? "Falha na função.");
-  } finally {
-    setSubmitting(false);
-  }
-};
-
-
   return { submitRegistration, submitting };
-};
+}
