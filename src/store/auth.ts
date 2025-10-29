@@ -1,4 +1,3 @@
-// src/store/auth.ts
 import { create } from "zustand";
 import { supabase } from "~/lib/supabase";
 
@@ -11,6 +10,7 @@ type Profile = {
   phone: string | null;
   organization_id: string | null;
   created_at: string;
+  confirmed_at?: string;
 };
 
 interface AuthState {
@@ -33,15 +33,18 @@ export const useAuth = create<AuthState>((set, get) => ({
   profile: null,
   loading: true,
 
+  // Inicializa sessão e observa mudanças no estado de autenticação
   init: async () => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
+
     if (session?.user) {
       await get().refreshProfile();
     } else {
       set({ profile: null, loading: false });
     }
+
     supabase.auth.onAuthStateChange(async (_evt, sess) => {
       if (sess?.user) {
         await get().refreshProfile();
@@ -51,31 +54,29 @@ export const useAuth = create<AuthState>((set, get) => ({
     });
   },
 
-  // ✅ Garante que SEMPRE exista uma linha em `profiles` para o usuário logado
+  // Atualiza / cria o profile sempre que o usuário loga
   refreshProfile: async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
     if (!user) {
       set({ profile: null, loading: false });
       return;
     }
 
-    // helper: transforma vazio/espacos em null
     const nz = (v?: any) => {
       if (v == null) return null;
       const s = String(v).trim();
       return s.length ? s : null;
     };
 
-    // metadata do auth
     const m = (user.user_metadata ?? {}) as any;
     const metaName = nz(m.name);
     const metaPhone = nz(m.phone);
-    const metaOrg = nz(m.organization_id); // 👈 agora é organization_id
+    const metaOrg = nz(m.organization_id);
     const metaRole = nz(m.role) ?? "user";
 
-    // lê profiles
     const sel = await supabase
       .from("profiles")
       .select("id, role, name, email, phone, organization_id, created_at")
@@ -88,7 +89,6 @@ export const useAuth = create<AuthState>((set, get) => ({
       return;
     }
 
-    // se não existe profile: cria já normalizando e usando fallback do metadata
     if (!sel.data) {
       const displayName = metaName ?? user.email?.split("@")[0] ?? "Usuário";
       const ins = await supabase.from("profiles").insert({
@@ -99,116 +99,105 @@ export const useAuth = create<AuthState>((set, get) => ({
         phone: metaPhone,
         organization_id: metaOrg,
       });
+
       if (ins.error) {
         console.log("profiles insert error:", ins.error);
         set({ profile: null, loading: false });
         return;
       }
-      const reread = await supabase
-        .from("profiles")
-        .select("id, role, name, email, phone, organization_id, created_at")
-        .eq("id", user.id)
-        .single();
-      if (reread.error) {
-        console.log("profiles reread error:", reread.error);
-        set({ profile: null, loading: false });
-        return;
-      }
-      set({ profile: reread.data as any, loading: false });
+    }
+
+    const reread = await supabase
+      .from("profiles")
+      .select("id, role, name, email, phone, organization_id, created_at")
+      .eq("id", user.id)
+      .single();
+
+    if (reread.error) {
+      console.log("profiles reread error:", reread.error);
+      set({ profile: null, loading: false });
       return;
     }
 
-    // existe profile: normalize e aplique fallback também quando for string vazia
-    const row = sel.data as any;
-    const rowName = nz(row.name);
-    const rowPhone = nz(row.phone);
-    const rowOrg = nz(row.organization_id); // 👈 agora é organization_id
-    const rowRole = nz(row.role) ?? "user";
-
+    const row = reread.data as any;
     const next = {
       id: row.id,
-      role: rowRole ?? metaRole ?? "user",
-      name: rowName ?? metaName ?? user.email?.split("@")[0] ?? "Usuário",
+      role: row.role ?? metaRole ?? "user",
+      name: row.name ?? metaName ?? user.email?.split("@")[0] ?? "Usuário",
       email: nz(row.email) ?? user.email,
-      phone: rowPhone ?? metaPhone,
-      organization_id: rowOrg ?? metaOrg, // 👈 agora vazio cai pro metadata
+      phone: row.phone ?? metaPhone,
+      organization_id: row.organization_id ?? metaOrg,
       created_at: row.created_at,
     };
-
-    // backfill se faltou algum campo (null OU vazio)
-    const needsUpdate =
-      (rowName == null && next.name != null) ||
-      (rowPhone == null && next.phone != null) ||
-      (rowOrg == null && next.organization_id != null) ||
-      (rowRole == null && next.role != null);
-
-    if (needsUpdate) {
-      const upd = await supabase
-        .from("profiles")
-        .update({
-          name: next.name,
-          phone: next.phone,
-          organization_id: next.organization_id,
-          role: next.role,
-        })
-        .eq("id", user.id);
-      if (upd.error) console.log("profiles update(backfill) error:", upd.error);
-    }
 
     set({ profile: next as any, loading: false });
   },
 
-  // Registro: cria auth -> garante sessão -> insere profile -> carrega
-  register: async ({ name, email, phone, organization_id, password }) => {
-    const cleanEmail = String(email).trim().toLowerCase();
+register: async ({ name, email, phone, organization_id, password }) => {
+  const cleanEmail = String(email).trim().toLowerCase();
 
-    // 1) salvar metadados no usuário
-    const { data, error } = await supabase.auth.signUp({
-      email: cleanEmail,
-      password,
-      options: {
-        data: { name, phone, organization_id, role: "user" }, // ← grava no user_metadata
+  console.log("📩 Criando usuário via Edge Function admin_create_user...");
+
+  const res = await fetch(
+    `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/admin-create-user`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
       },
-    });
-    if (error) throw error;
-
-    // 2) garantir sessão (se o projeto exige confirmação de email, isso pode não vir)
-    let userId = data.user?.id;
-    if (!data.session) {
-      const s2 = await supabase.auth.signInWithPassword({
+      body: JSON.stringify({
         email: cleanEmail,
         password,
-      });
-      if (s2.error) throw s2.error;
-      userId = s2.data.user?.id;
+        name,
+        phone,
+        organization_id,
+      }),
     }
-    if (!userId)
-      throw new Error("Não foi possível obter o user id após cadastro");
+  );
 
-    // 3) upsert na tabela profiles (id = auth.user.id)
-    const up = await supabase.from("profiles").upsert({
-      id: userId,
-      role: "user",
-      name,
-      email: cleanEmail,
-      phone,
-      organization_id,
-    });
-    if (up.error) throw up.error;
+  const result = await res.json().catch(() => ({}));
+  console.log("📥 Resposta admin_create_user:", res.status, result);
 
-    await get().refreshProfile();
-  },
+  if (!res.ok) {
+    throw new Error(
+      `Falha ao criar usuário: ${result.error || res.statusText}`
+    );
+  }
 
-  // Login: faz auth e já puxa/cria profile se necessário
+  const userId = result.uid;
+  if (!userId) throw new Error("Usuário criado, mas id não retornado.");
+
+  // Cria o perfil localmente (tabela profiles)
+  const up = await supabase.from("profiles").upsert({
+    id: userId,
+    role: "user",
+    name,
+    email: cleanEmail,
+    phone,
+    organization_id,
+  });
+
+  if (up.error) throw up.error;
+
+  console.log("✅ Perfil criado para usuário:", userId);
+},
+
+
+
+
+  // Login direto (sem exigir e-mail confirmado)
   login: async (email, password) => {
     const ok = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     });
+
     if (ok.error) {
       console.log("Supabase login error:", ok.error);
       throw ok.error;
     }
+
     await get().refreshProfile();
   },
 
