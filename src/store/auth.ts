@@ -157,7 +157,6 @@ register: async ({ name, email, phone, organization_id, password }) => {
   );
 
   const result = await res.json().catch(() => ({}));
-  console.log("📥 Resposta admin_create_user:", res.status, result);
 
   if (!res.ok) {
     throw new Error(
@@ -167,6 +166,7 @@ register: async ({ name, email, phone, organization_id, password }) => {
 
   const userId = result.uid;
   if (!userId) throw new Error("Usuário criado, mas id não retornado.");
+  console.log("✅ Usuário criado name::", name);
 
   // Cria o perfil localmente (tabela profiles)
   const up = await supabase.from("profiles").upsert({
