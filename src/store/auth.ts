@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { supabase } from "~/lib/supabase";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "~/lib/supabase";
 
 type Profile = {
   is_admin: any;
@@ -133,18 +133,16 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ profile: next as any, loading: false });
   },
 
-register: async ({ name, email, phone, organization_id, password }) => {
-  const cleanEmail = String(email).trim().toLowerCase();
+  register: async ({ name, email, phone, organization_id, password }) => {
+    const cleanEmail = String(email).trim().toLowerCase();
 
-  console.log("📩 Criando usuário via Edge Function admin_create_user...");
+    console.log("📩 Criando usuário via Edge Function admin_create_user...");
 
-  const res = await fetch(
-    `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/admin-create-user`,
-    {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-user`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify({
         email: cleanEmail,
@@ -153,38 +151,34 @@ register: async ({ name, email, phone, organization_id, password }) => {
         phone,
         organization_id,
       }),
+    });
+
+    const result = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        `Falha ao criar usuário: ${result.error || res.statusText}`
+      );
     }
-  );
 
-  const result = await res.json().catch(() => ({}));
+    const userId = result.uid;
+    if (!userId) throw new Error("Usuário criado, mas id não retornado.");
+    console.log("✅ Usuário criado name::", name);
 
-  if (!res.ok) {
-    throw new Error(
-      `Falha ao criar usuário: ${result.error || res.statusText}`
-    );
-  }
+    // Cria o perfil localmente (tabela profiles)
+    const up = await supabase.from("profiles").upsert({
+      id: userId,
+      role: "user",
+      name,
+      email: cleanEmail,
+      phone,
+      organization_id,
+    });
 
-  const userId = result.uid;
-  if (!userId) throw new Error("Usuário criado, mas id não retornado.");
-  console.log("✅ Usuário criado name::", name);
+    if (up.error) throw up.error;
 
-  // Cria o perfil localmente (tabela profiles)
-  const up = await supabase.from("profiles").upsert({
-    id: userId,
-    role: "user",
-    name,
-    email: cleanEmail,
-    phone,
-    organization_id,
-  });
-
-  if (up.error) throw up.error;
-
-  console.log("✅ Perfil criado para usuário:", userId);
-},
-
-
-
+    console.log("✅ Perfil criado para usuário:", userId);
+  },
 
   // Login direto (sem exigir e-mail confirmado)
   login: async (email, password) => {

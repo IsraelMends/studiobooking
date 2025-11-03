@@ -1,11 +1,15 @@
 import React, { useEffect } from "react";
+import "react-native-url-polyfill/auto";
 import { Stack, useRouter } from "expo-router";
 import { AppState } from "react-native";
 import * as Notifications from "expo-notifications";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useAuth } from "~/store/auth";
-import { cleanupExpiredBookings, completePastBookings } from "~/services/bookings";
+import {
+  cleanupExpiredBookings,
+  completePastBookings,
+} from "~/services/bookings";
 import { confirmBooking, cancelBooking } from "~/services/bookings";
 
 // comportamento padrão das notificações
@@ -15,7 +19,7 @@ Notifications.setNotificationHandler({
     shouldPlaySound: false,
     shouldSetBadge: false,
     shouldShowBanner: true,
-    shouldShowList: true, 
+    shouldShowList: true,
   }),
 });
 
