@@ -13,20 +13,29 @@ export const useProfileData = () => {
         setOrgName(null);
         return;
       }
+
       setLoadingOrg(true);
+
       try {
         const { data, error } = await supabase
           .from('organizations')
           .select('name')
           .eq('id', profile.organization_id)
-          .single();
+          .maybeSingle(); // 👈 evita erro se não houver resultado
 
         if (error) {
           console.error('Erro ao buscar organização:', error);
           setOrgName(null);
-        } else {
-          setOrgName(data?.name || null);
+          return;
         }
+
+        if (!data) {
+          console.warn(`Organização não encontrada para o ID: ${profile.organization_id}`);
+          setOrgName(null);
+          return;
+        }
+
+        setOrgName(data.name);
       } catch (e) {
         console.error('Erro inesperado ao buscar organização:', e);
         setOrgName(null);
@@ -34,12 +43,13 @@ export const useProfileData = () => {
         setLoadingOrg(false);
       }
     }
+
     loadOrgName();
   }, [profile?.organization_id]);
 
   const orgLabel = loadingOrg
     ? 'Carregando...'
-    : orgName || profile?.organization_id?.trim() || 'Não informado';
+    : orgName || 'Organização não encontrada';
 
   return {
     profile,
