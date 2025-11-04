@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar } from 'react-native-calendars';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
 
 import { ScheduleCalendarProps } from '~/types/schedule/schedule.types';
 import { isPastDate } from '~/utils/schedule';
@@ -9,6 +9,23 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onDayPress,
   minDate,
 }) => {
+  // Locale PT-BR para títulos de meses e dias
+  LocaleConfig.locales['pt-br'] = {
+    monthNames: [
+      'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+      'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
+    ],
+    monthNamesShort: [
+      'Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'
+    ],
+    dayNames: [
+      'Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'
+    ],
+    dayNamesShort: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
+    today: 'Hoje',
+  } as any;
+  LocaleConfig.defaultLocale = 'pt-br';
+
   const handleDayPress = (day: { dateString: string }) => {
     if (isPastDate(day.dateString)) return;
     onDayPress(day);
