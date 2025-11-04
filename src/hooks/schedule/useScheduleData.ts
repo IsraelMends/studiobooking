@@ -5,6 +5,7 @@ import { useSettings } from '~/store/settings';
 import { useAuth } from '~/store/auth';
 import { fetchDayBookings } from '~/services/bookings';
 import { buildAvailableSlots } from '~/utils/dates';
+import { supabase } from "~/lib/supabase";
 import { 
   toLocalDateString, 
   isPastDate, 
@@ -23,10 +24,28 @@ export const useScheduleData = () => {
   const [available, setAvailable] = useState<string[]>([]);
   const [dayBookings, setDayBookings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     load().finally(() => setIsLoading(false));
   }, []);
+
+  // Realtime: atualizar quando bookings mudarem
+  useEffect(() => {
+    const channel = supabase
+      .channel('bookings_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload: any) => {
+        const changedDate = payload?.new?.date || payload?.old?.date;
+        if (changedDate === date) {
+          setTick((t) => t + 1);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [date]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -35,15 +54,9 @@ export const useScheduleData = () => {
         setDayBookings([]);
         return;
       }
-      if (!profile?.organization_id) {
-        setAvailable([]);
-        setDayBookings([]);
-        return;
-      }
-
       setIsLoading(true);
       try {
-        const raw = await fetchDayBookings(date, profile.organization_id);
+        const raw = await fetchDayBookings(date, '');
         const b = (raw ?? []).filter((x: any) => x?.start_time && x?.end_time);
 
         setDayBookings(b);
@@ -90,7 +103,7 @@ av = av.filter(slot =>
     };
 
     loadData();
-  }, [date, settings, blocks, profile?.organization_id]);
+  }, [date, settings, blocks, tick]);
 
   return {
     date,
