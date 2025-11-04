@@ -56,6 +56,8 @@ export default function Schedule() {
       >
         <Text style={styles.title}>Agende sua Reserva</Text>
 
+        {/* Disponibilidade agora é global (sem seleção de organização) */}
+
         <ScheduleCalendar
           selectedDate={date}
           onDayPress={onDayPress}
