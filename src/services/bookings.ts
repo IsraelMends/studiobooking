@@ -22,7 +22,6 @@ export async function fetchDayBookings(dateYYYYMMDD: string, orgId: string) {
     .from('bookings')
     .select('id, user_id, date, start_time, end_time, buffer_until, status, created_at, room_id, devices, organization_id')
     .eq('date', dateYYYYMMDD)
-    .eq('organization_id', orgId)
     .neq('status', 'canceled')
     .neq('status', 'cancelled')
     .order('start_time', { ascending: true });
@@ -87,20 +86,8 @@ export async function createBooking(
 
   if (error) throw error;
 
-// 🚨 Agendar notificação 30 minutos antes
-const startDate = new Date(`${date}T${startHH}:${startMM}:00`);
-const notifyAt = new Date(startDate.getTime() - 30 * 60 * 1000); // 30 min antes
-
-await Notifications.scheduleNotificationAsync({
-  content: {
-    title: "Confirme sua reserva",
-    body: `Sua sessão começa às ${payload.start_time.slice(0,5)}. Confirme ou cancele.`,
-    data: { bookingId: data.id, startDateISO: date, startTime: payload.start_time },
-    categoryIdentifier: "BOOKING_CONFIRM", // iOS: ações
-  },
-  trigger: { date: notifyAt } as any,
-});
-
+  // Agendamento de notificação centralizado em useBookings.loadMyUpcoming.
+  // Evitar agendar aqui para não duplicar notificações.
   return data;
 }
 

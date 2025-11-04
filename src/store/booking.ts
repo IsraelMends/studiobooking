@@ -120,18 +120,7 @@ export const useBookings = create<BookingState>((set, get) => ({
           });
         }
 
-        // Notificação 30 min antes (último aviso)
-        const notifyLast = new Date(start.getTime() - 30 * 60 * 1000);
-        if (notifyLast.getTime() > Date.now()) {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "Último aviso",
-              body: `Faltam 30 min. Não confirmando, a reserva será cancelada.`,
-              data: { bookingId: b.id, date: b.date, start_time: b.start_time },
-            },
-            trigger: { date: notifyLast } as any,
-          });
-        }
+        // Removido: não enviar aviso de 30 minutos — apenas 1h antes
       }
     } catch (e) {
       // logging básico apenas
