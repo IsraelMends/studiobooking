@@ -3,11 +3,11 @@ import { View, Text, Pressable, Alert } from "react-native";
 import { supabase } from "~/lib/supabase";
 import { confirmBooking, cancelBooking } from "~/services/bookings";
 
-function inWindow(startISO: string, minutesBefore = 30, graceAfter = 15) {
+function inWindow(startISO: string) {
   const now = new Date();
   const start = new Date(startISO);
-  const openAt = new Date(start.getTime() - minutesBefore * 60 * 1000);
-  const closeAt = new Date(start.getTime() + graceAfter * 60 * 1000);
+  const openAt = new Date(start.getTime() - 60 * 60 * 1000); // 60 min antes
+  const closeAt = new Date(start.getTime() - 30 * 60 * 1000); // 30 min antes
   return now >= openAt && now <= closeAt;
 }
 
@@ -111,7 +111,7 @@ export function NextBookingCard({ userId }: { userId: string }) {
         <Text style={{ marginTop: 12, opacity: 0.7 }}>
           {bk.confirmed
             ? "Aguardando início."
-            : "Você poderá confirmar até o início."}
+            : "O botão de confirmar aparecerá 1 hora antes do início."}
         </Text>
       )}
     </View>

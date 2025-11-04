@@ -36,7 +36,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({ item }) => {
 
   const canCancel = isActive && diffMinutes > 30; 
   const canConfirm =
-    isActive && !item.confirmed && diffMinutes <= 45 && diffMinutes > 0;
+    isActive && !item.confirmed && diffMinutes <= 60 && diffMinutes > 30;
 
   const whenLabel = useMemo(
     () => format(startDt, "EEEE, dd MMM yyyy — HH:mm", { locale: ptBR }),
@@ -72,7 +72,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({ item }) => {
   return (
     <View style={styles.card}>
       <Text style={styles.cardDate}>{whenLabel}</Text>
-      <Text style={styles.durationText}>Duração: 60 min (+10 min buffer)</Text>
+      <Text style={styles.durationText}>Duração: 60 min (+10 min tolerância)</Text>
 
       <View style={styles.cardFooter}>
         <View style={[styles.statusBadge, { backgroundColor: statusBgColor }]}>
