@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { supabase } from "~/lib/supabase";
 import { formatISO, isAfter } from "date-fns";
+import * as Notifications from "expo-notifications";
 
 // ---------- Types ----------
 export type Booking = {
@@ -89,7 +90,53 @@ export const useBookings = create<BookingState>((set, get) => ({
       .order("start_time", { ascending: true });
 
     if (error) throw error;
-    set({ myUpcoming: data ?? [] });
+    const upcoming = data ?? [];
+    set({ myUpcoming: upcoming });
+
+    // Agenda notificações locais 30 min antes do início para cada reserva futura
+    try {
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const alreadyScheduled = new Set(
+        scheduled
+          .map((n) => (n?.content?.data as any)?.bookingId)
+          .filter(Boolean)
+      );
+
+      for (const b of upcoming) {
+        const start = normalizeTimeToIso(b.date, b.start_time);
+        if (start.getTime() <= Date.now()) continue; // ignora passadas
+        if (alreadyScheduled.has(b.id)) continue; // já agendada
+
+        // Notificação para abrir a janela de confirmação (1h antes)
+        const notifyOpen = new Date(start.getTime() - 60 * 60 * 1000);
+        if (notifyOpen.getTime() > Date.now()) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "Confirme sua reserva",
+              body: `A confirmação está disponível por 30 minutos. Início às ${String(b.start_time).slice(0, 5)}.`,
+              data: { bookingId: b.id, date: b.date, start_time: b.start_time },
+            },
+            trigger: { date: notifyOpen } as any,
+          });
+        }
+
+        // Notificação 30 min antes (último aviso)
+        const notifyLast = new Date(start.getTime() - 30 * 60 * 1000);
+        if (notifyLast.getTime() > Date.now()) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "Último aviso",
+              body: `Faltam 30 min. Não confirmando, a reserva será cancelada.`,
+              data: { bookingId: b.id, date: b.date, start_time: b.start_time },
+            },
+            trigger: { date: notifyLast } as any,
+          });
+        }
+      }
+    } catch (e) {
+      // logging básico apenas
+      console.log("Falha ao agendar notificações de reservas:", e);
+    }
   },
 
   // --------- User: gerar slots de um dia ---------

@@ -136,7 +136,8 @@ export async function cancelBooking(
 }
 
 // Limpa reservas que passaram do horário de início + tolerância e seguem não confirmadas
-export async function cleanupExpiredBookings(graceMinutes = 15) {
+// Cancela automaticamente reservas não confirmadas quando faltarem 30 minutos para iniciar
+export async function cleanupExpiredBookings(cancelBeforeMinutes = 30) {
   const now = new Date();
 
   const { data, error } = await supabase
@@ -151,15 +152,16 @@ export async function cleanupExpiredBookings(graceMinutes = 15) {
   }
 
   for (const booking of data ?? []) {
-    const start = new Date(`${booking.date}T${booking.start_time}`); 
-    const cutoff = new Date(start.getTime() + graceMinutes * 60 * 1000);
+    const start = new Date(`${booking.date}T${booking.start_time}`);
+    const cutoff = new Date(start.getTime() - cancelBeforeMinutes * 60 * 1000);
 
+    // Se já atingiu o ponto de 30 minutos antes e não foi confirmada, cancela
     if (now >= cutoff) {
       await supabase
         .from("bookings")
         .update({ status: "canceled" })
         .eq("id", booking.id);
-      console.log(`Reserva ${booking.id} cancelada por falta de confirmação após ${graceMinutes} min.`);
+      console.log(`Reserva ${booking.id} cancelada 30 min antes por falta de confirmação.`);
     }
   }
 }
