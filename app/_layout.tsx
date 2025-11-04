@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import "react-native-url-polyfill/auto";
 import { Stack, useRouter } from "expo-router";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -29,6 +29,22 @@ export default function RootLayout() {
 
   useEffect(() => {
     init();
+
+    // Android: canal de notificações com alta importância
+    if (Platform.OS === "android") {
+      Notifications.setNotificationChannelAsync("default", {
+        name: "Padrão",
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: "default",
+        vibrationPattern: [0, 250, 250, 250],
+        lockscreenVisibility:
+          Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: true,
+        enableVibrate: true,
+        enableLights: true,
+        lightColor: "#FFFFFFFF",
+      });
+    }
 
     (async () => {
       const { status } = await Notifications.getPermissionsAsync();
