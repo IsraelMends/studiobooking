@@ -7,8 +7,8 @@ function inWindow(startISO: string) {
   const now = new Date();
   const start = new Date(startISO);
   const openAt = new Date(start.getTime() - 60 * 60 * 1000); // 60 min antes
-  const closeAt = new Date(start.getTime() - 30 * 60 * 1000); // 30 min antes
-  return now >= openAt && now <= closeAt;
+  // Mostrar a partir de 1h antes até o início
+  return now >= openAt && now < start;
 }
 
 export function NextBookingCard({ userId }: { userId: string }) {
