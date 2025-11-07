@@ -36,7 +36,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({ item }) => {
 
   const canCancel = isActive && diffMinutes > 30; 
   const canConfirm =
-    isActive && !item.confirmed && diffMinutes <= 60 && diffMinutes > 30;
+    isActive && !item.confirmed && diffMinutes <= 60 && diffMinutes > 0;
 
   const whenLabel = useMemo(
     () => format(startDt, "EEEE, dd MMM yyyy — HH:mm", { locale: ptBR }),
