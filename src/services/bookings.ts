@@ -19,12 +19,14 @@ type DayBooking = {
 // Busca reservas de um dia
 export async function fetchDayBookings(dateYYYYMMDD: string, orgId: string) {
   const { data, error } = await supabase
-    .from('bookings')
-    .select('id, user_id, date, start_time, end_time, buffer_until, status, created_at, room_id, devices, organization_id')
-    .eq('date', dateYYYYMMDD)
-    .neq('status', 'canceled')
-    .neq('status', 'cancelled')
-    .order('start_time', { ascending: true });
+    .from("bookings")
+    .select(
+      "id, user_id, date, start_time, end_time, buffer_until, status, created_at, room_id, devices, organization_id"
+    )
+    .eq("date", dateYYYYMMDD)
+    .neq("status", "canceled")
+    .neq("status", "cancelled")
+    .order("start_time", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
@@ -65,6 +67,26 @@ export async function createBooking(
 ) {
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // opcional
 
+  // Enforce máximo de 2h por empresa no dia
+  const toSecs = (hh: string, mm: string) =>
+    Number(hh) * 3600 + Number(mm) * 60;
+  const newDurationSecs = toSecs(endHH, endMM) - toSecs(startHH, startMM);
+  if (newDurationSecs <= 0) {
+    throw new Error("Horário inválido: término deve ser após o início.");
+  }
+
+  const alreadyReservedSecs = await getOrgReservedSeconds(orgId, date);
+  const MAX_PER_DAY_SECS = 2 * 3600; // 2 horas
+  if (alreadyReservedSecs + newDurationSecs > MAX_PER_DAY_SECS) {
+    const remaining = Math.max(0, MAX_PER_DAY_SECS - alreadyReservedSecs);
+    const remainingMin = Math.floor(remaining / 60);
+    throw new Error(
+      remainingMin > 0
+        ? `Limite diário por empresa excedido. Restam ${remainingMin} minutos disponíveis para hoje.`
+        : "Limite diário por empresa (2h) atingido para hoje."
+    );
+  }
+
   const payload = {
     organization_id: orgId,
     user_id: userId,
@@ -94,12 +116,11 @@ export async function createBooking(
 export async function confirmBooking(bookingId: string) {
   const { error } = await supabase
     .from("bookings")
-    .update({ confirmed: true, status: "confirmed", confirmed_at: new Date().toISOString() })
+    .update({ confirmed: true, status: "confirmed" })
     .eq("id", bookingId)
     .neq("status", "canceled"); // não confirma canceladas
   if (error) throw error;
 }
-
 
 export async function cancelBooking(
   bookingId: string,
@@ -148,7 +169,9 @@ export async function cleanupExpiredBookings(cancelBeforeMinutes = 30) {
         .from("bookings")
         .update({ status: "canceled" })
         .eq("id", booking.id);
-      console.log(`Reserva ${booking.id} cancelada 30 min antes por falta de confirmação.`);
+      console.log(
+        `Reserva ${booking.id} cancelada 30 min antes por falta de confirmação.`
+      );
     }
   }
 }
