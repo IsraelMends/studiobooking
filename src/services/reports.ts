@@ -8,15 +8,43 @@ export async function fetchBookingsByMonth(year: number, month: number){
   const endMonth = month === 12 ? 1 : (month+1);
   const endYear = month === 12 ? (year+1) : year;
   const end = `${endYear}-${pad(endMonth)}-01`;
-  const { data, error } = await supabase
+
+  // Busca reservas do mês
+  const bookingsRes = await supabase
     .from('bookings')
-    .select('id,date,start_time,end_time,buffer_until,status,created_at,user:profiles(id,name,email)')
+    .select('id,date,start_time,end_time,buffer_until,status,created_at,user_id')
     .gte('date', start)
     .lt('date', end)
     .order('date', { ascending: true })
     .order('start_time', { ascending: true });
-  if (error) throw error;
-  return data ?? [];
+
+  if (bookingsRes.error) throw bookingsRes.error;
+  const bookings = bookingsRes.data ?? [];
+
+  if (bookings.length === 0) return [];
+
+  // Busca user_ids únicos
+  const userIds = Array.from(new Set(bookings.map((b) => b.user_id)));
+
+  // Busca perfis separadamente (contorna limitações de RLS em JOINs)
+  const profilesRes = await supabase
+    .from('profiles')
+    .select('id, name, email')
+    .in('id', userIds);
+
+  // Monta mapa de perfis
+  const profilesMap: Record<string, { id: string; name: string | null; email: string | null }> = {};
+  if (profilesRes.data) {
+    profilesRes.data.forEach((p) => {
+      profilesMap[p.id] = p;
+    });
+  }
+
+  // Une os dados (mantém formato esperado pelo bookingsToCSV)
+  return bookings.map((booking) => ({
+    ...booking,
+    user: profilesMap[booking.user_id] ?? null,
+  }));
 }
 
 export function bookingsToCSV(rows: any[]){
