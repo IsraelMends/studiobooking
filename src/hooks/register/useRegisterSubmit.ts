@@ -8,7 +8,7 @@ export function useRegisterSubmit() {
   const router = useRouter();
 
   const submitRegistration = async (formData: {
-    name: string;
+    full_name: string;
     email: string;
     phone?: string;
     organization_id?: string;
@@ -16,16 +16,16 @@ export function useRegisterSubmit() {
   }) => {
     try {
       setSubmitting(true);
-      console.log("📩 Iniciando cadastro:", formData.email);
+      console.log("📩 Iniciando cadastro:", formData.email, "Nome:", formData.full_name);
 
       // ✅ Chama o método do store (que faz signUp + confirm_email via Edge Function)
       await useAuth.getState().register({
-  name: formData.name?.trim() || "Usuário",
-  email: formData.email,
-  phone: formData.phone,
-  organization_id: formData.organization_id,
-  password: formData.password,
-});
+        name: formData.full_name?.trim() || "Usuário",
+        email: formData.email,
+        phone: formData.phone,
+        organization_id: formData.organization_id,
+        password: formData.password,
+      });
 
 
       console.log("✅ Usuário criado e confirmado via Edge Function!");
