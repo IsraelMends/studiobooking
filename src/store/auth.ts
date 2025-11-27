@@ -56,11 +56,21 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   // Atualiza / cria o profile sempre que o usuário loga
   refreshProfile: async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Tenta obter o usuário atual - primeiro tenta getUser (mais confiável)
+    let user = null;
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    
+    if (userData?.user) {
+      user = userData.user;
+    } else {
+      // Fallback: tenta obter da sessão atual
+      const { data: sessionData } = await supabase.auth.getSession();
+      user = sessionData?.session?.user ?? null;
+    }
 
     if (!user) {
+      console.log("refreshProfile: Nenhum usuário encontrado", userError);
       set({ profile: null, loading: false });
       return;
     }
@@ -156,9 +166,16 @@ export const useAuth = create<AuthState>((set, get) => ({
     const result = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      throw new Error(
-        `Falha ao criar usuário: ${result.error || res.statusText}`
-      );
+      // Log detalhado do erro
+      console.log("❌ Edge Function error response:", JSON.stringify(result, null, 2));
+      
+      // Extrai mensagem de erro corretamente
+      const errorMsg = 
+        typeof result.error === 'string' 
+          ? result.error 
+          : result.error?.message || result.message || JSON.stringify(result) || res.statusText;
+      
+      throw new Error(`Falha ao criar usuário: ${errorMsg}`);
     }
 
     const userId = result.uid;
