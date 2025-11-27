@@ -255,45 +255,73 @@ export const useBookings = create<BookingState>((set, get) => ({
 
   // --------- Admin: visão do dia (todas as reservas com dono) ---------
   loadDayOverview: async (dateISO: string) => {
-    // com embed (requer FK)
-    let q = supabase
+    // Busca reservas do dia com JOIN nos perfis (usando inner join)
+    const bookingsRes = await supabase
       .from("bookings")
-      .select("*, profiles:user_id (id, name, email, organization_id)")
+      .select(`
+        *,
+        profiles!inner (
+          id,
+          name,
+          email,
+          organization_id
+        )
+      `)
       .eq("date", dateISO)
       .order("start_time", { ascending: true });
 
-    let { data, error } = await q;
-    if (error && error.code === "PGRST200") {
-      // fallback sem FK
-      const b = await supabase
+    // Se o JOIN falhar (RLS), tenta abordagem alternativa
+    if (bookingsRes.error) {
+      console.log("loadDayOverview JOIN error:", bookingsRes.error);
+      
+      // Fallback: busca apenas as reservas
+      const fallbackRes = await supabase
         .from("bookings")
         .select("*")
         .eq("date", dateISO)
         .order("start_time", { ascending: true });
-      if (b.error) throw b.error;
 
-      const userIds = Array.from(new Set((b.data || []).map((x) => x.user_id)));
-      let owners: Record<string, UserCard> = {};
-      if (userIds.length) {
-        const p = await supabase
-          .from("profiles")
-          .select("id, name, email, organization_id")
-          .in("id", userIds);
-        if (p.error) throw p.error;
-        (p.data || []).forEach((u) => {
-          owners[u.id] = u as any;
+      if (fallbackRes.error) throw fallbackRes.error;
+
+      const bookings = fallbackRes.data || [];
+      if (bookings.length === 0) {
+        set({ dayOverview: [] });
+        return;
+      }
+
+      // Tenta buscar perfis via RPC (se existir)
+      const userIds = Array.from(new Set(bookings.map((b) => b.user_id)));
+      
+      // Tenta buscar perfis diretamente
+      const profilesRes = await supabase
+        .from("profiles")
+        .select("id, name, email, organization_id")
+        .in("id", userIds);
+
+      console.log("loadDayOverview profiles query:", {
+        userIds,
+        data: profilesRes.data,
+        error: profilesRes.error,
+      });
+
+      const profilesMap: Record<string, UserCard> = {};
+      if (profilesRes.data) {
+        profilesRes.data.forEach((p) => {
+          profilesMap[p.id] = p as UserCard;
         });
       }
-      const joined = (b.data || []).map((it) => ({
-        ...it,
-        profiles: owners[it.user_id] ?? null,
+
+      const joined = bookings.map((booking) => ({
+        ...booking,
+        profiles: profilesMap[booking.user_id] ?? null,
       }));
+
       set({ dayOverview: joined as any });
       return;
     }
 
-    if (error) throw error;
-    set({ dayOverview: (data || []) as any });
+    // JOIN funcionou - usa dados direto
+    set({ dayOverview: (bookingsRes.data || []) as any });
   },
 
   // --------- Admin: cancelar (mesmo RPC; admin sempre pode) ---------
